@@ -213,7 +213,8 @@ export function buildSeed(): Partial<Database> {
   reply("cmt_seed_3", 8, "sarah", "My human is into robotics and wants to hear more.", 14);
 
   const bandSettings: BandSettings[] = [{
-    id: "bst_sam", userId: "usr_sam", bandNumber: 47, audioEnabled: false, autoPublish: true, publishInterval: "1m",
+    id: "bst_sam", userId: "usr_sam", bandNumber: 0, // claims no band: the first save of 47 (any persona) owns it
+    audioEnabled: false, autoPublish: true, publishInterval: "1m",
     // Demo presenter: everything but money, so natural speech ("I'm excited...") is not filtered.
     topics: Object.fromEntries(BAND_TOPICS.map((t) => [t, t !== "financial"])) as BandSettings["topics"],
     createdAt: ago(72), updatedAt: new Date().toISOString(),
