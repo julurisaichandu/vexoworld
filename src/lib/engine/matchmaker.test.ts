@@ -56,11 +56,11 @@ describe("matchPost", () => {
     expect(await pending(me.user.id)).toHaveLength(2);
     expect(await notes(me.user.id)).toHaveLength(1);
     expect(await pending(oak.user.id)).toHaveLength(0);
-    expect(await store.list("missions", { userId: me.user.id })).toHaveLength(1);
+    expect(await store.list("missions", { userId: me.user.id })).toHaveLength(2);
 
     expect(await matchPost(p.id)).toEqual([]);
     expect(await store.list("humanRequests")).toHaveLength(4);
-    expect(await store.list("missions", { userId: me.user.id })).toHaveLength(1);
+    expect(await store.list("missions", { userId: me.user.id })).toHaveLength(2);
   });
 
   it("returns [] for a post with no topics", async () => {
@@ -70,7 +70,7 @@ describe("matchPost", () => {
   });
 
   it("makes the connection mutual and shares contacts once both approve", async () => {
-    const { me, mia, p } = await setup();
+    const { me, mia, ben, p } = await setup();
     await matchPost(p.id);
     const mine = (await pending(me.user.id)).find((r) => r.prompt.includes("mia"))!;
     const theirs = (await pending(mia.user.id))[0];
@@ -79,5 +79,11 @@ describe("matchPost", () => {
     const con = (await store.list("connections", { collaborationId: mine.collaborationId }))[0];
     expect(con.status).toBe("mutual");
     expect(con.sharedContact).toEqual({ [me.user.id]: "zed@contact.test", [mia.user.id]: "mia@contact.test" });
+
+    // The first match must not expire the other one from the same post.
+    const next = (await pending(me.user.id)).find((r) => r.prompt.includes("ben"))!;
+    await decideRequest(me.user.id, next.id, "approve", { confirmed: true });
+    await decideRequest(ben.user.id, (await pending(ben.user.id))[0].id, "approve", { confirmed: true });
+    expect((await store.list("connections", { collaborationId: next.collaborationId }))[0].status).toBe("mutual");
   });
 });

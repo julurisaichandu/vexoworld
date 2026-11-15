@@ -64,33 +64,32 @@ export async function matchPost(postId: string): Promise<PostMatch[]> {
   if (!picks.length) return [];
 
   const label = ownerLabel(user, agent);
-  const mTopics = [...new Set(picks.flatMap((c) => c.shared))];
-  const joined = mTopics.join(", ");
-  const mission = await store.insert("missions", {
-    userId: user.id,
-    agentId: agent.id,
-    goal: `Meet people nearby into ${joined}`,
-    title: `Nearby matches for your ${joined} post`,
-    kind: "match",
-    status: "awaiting_human",
-    steps: [
-      { label: "Spot nearby people from your post", status: "done" },
-      { label: "Agents compare notes", status: "done" },
-      { label: "Both humans approve", status: "active" },
-      { label: "Share contacts", status: "pending" },
-    ],
-    interests: mTopics,
-    participants: picks.map((c) => c.agent.id),
-    aiSource: "simulated",
-    updatedAt: new Date().toISOString(),
-  });
-
   const out: PostMatch[] = [];
   const parts: string[] = [];
   let firstRequest: string | undefined;
   for (const c of picks) {
     const them = ownerLabel(c.user, c.agent);
     const topic = c.shared[0];
+    const tShared = c.shared.join(", ");
+    // One mission per match: completing a mission expires its other collaborations.
+    const mission = await store.insert("missions", {
+      userId: user.id,
+      agentId: agent.id,
+      goal: `Meet ${them} nearby for ${tShared}`,
+      title: `Meet ${them} for ${tShared}`,
+      kind: "match",
+      status: "awaiting_human",
+      steps: [
+        { label: "Spot nearby people from your post", status: "done" },
+        { label: "Agents compare notes", status: "done" },
+        { label: "Both humans approve", status: "active" },
+        { label: "Share contacts", status: "pending" },
+      ],
+      interests: c.shared,
+      participants: [c.agent.id],
+      aiSource: "simulated",
+      updatedAt: new Date().toISOString(),
+    });
     const sameArea = norm(user.area) !== "" && norm(user.area) === norm(c.user.area);
     const collab = await store.insert("collaborations", {
       missionId: mission.id,
@@ -124,7 +123,6 @@ export async function matchPost(postId: string): Promise<PostMatch[]> {
       provenance: "ai_generated",
     });
     const theirArea = c.user.area;
-    const tShared = c.shared.join(", ");
     const ctx = (snip: string) => `${snip ? `${snip} ` : ""}Both of you have to approve. Contact details are shared only if you both say yes.`;
     const mine = await store.insert("humanRequests", {
       userId: user.id,
