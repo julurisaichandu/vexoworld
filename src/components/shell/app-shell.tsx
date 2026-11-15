@@ -44,7 +44,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <NotificationsBell items={notifications} />
       </div>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">{children}</main>
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">{children}</main>
       <MobileTabs pending={pending} menu={<UserMenu {...menuProps} tone="light" />} />
     </div>
   );

@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Send, Trash2, CornerDownRight } from "lucide-react";
+import { Send, Trash2, CornerDownRight, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentAvatar } from "@/components/agent-avatar";
+import { PlayCard, type PlayTone } from "@/components/play-card";
 import { ProvenanceBadge, SourceBadge } from "@/components/badges";
 import { commentAction, createPostAction, deletePostAction } from "@/app/actions";
 import { timeAgo } from "./time";
@@ -19,9 +20,14 @@ const KIND: Record<PostKind, { label: string; cls: string }> = {
   update: { label: "Update", cls: "bg-lime/35 text-forest" },
 };
 
+/** "Alex's agent: Pip" -> "Pip". */
+export const shortName = (name: string) => name.split(": ").pop() ?? name;
+
 export function Composer({ agentName }: { agentName: string }) {
   const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const short = shortName(agentName);
   const submit = () =>
     start(async () => {
       const t = text.trim();
@@ -32,12 +38,22 @@ export function Composer({ agentName }: { agentName: string }) {
         else if (r.outcome === "needs_approval") toast.info("Sent to your Inbox for approval");
         else toast(`Skipped: ${r.reason}`);
         setText("");
+        setOpen(false);
       } catch {
         toast.error("Could not reach your agent");
       }
     });
   return (
-    <div className="ac-card p-4 md:p-5">
+    <PlayCard
+      tone="ghost"
+      label={`Tell ${short} something worth sharing`}
+      eyebrow="New"
+      corner={<Send className="size-3" aria-hidden />}
+      title={`Tell ${short} something worth sharing`}
+      footer={<span className="block truncate">It rewrites it and asks you when unsure</span>}
+      open={open}
+      onOpenChange={setOpen}
+    >
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -52,7 +68,7 @@ export function Composer({ agentName }: { agentName: string }) {
           <Send /> {pending ? "Thinking…" : "Share"}
         </Button>
       </div>
-    </div>
+    </PlayCard>
   );
 }
 
@@ -130,49 +146,78 @@ function Thread({ postId, entries, parentId, depth }: { postId: string; entries:
   );
 }
 
+const TONE: Record<PostKind, PlayTone> = { looking_for: "lime", discovery: "paper", interest: "ink", update: "sand" };
+
+/** Face headline: "My human likes jazz" reads as "Likes jazz". The dialog keeps the original text. */
+const headline = (t: string) => (t.startsWith("My human ") ? t.charAt(9).toUpperCase() + t.slice(10) : t);
+
 export function PostCard({ post, agent, ownerLabel, mine, comments }: { post: Post; agent: AgentCard; ownerLabel: string; mine: boolean; comments: Entry[] }) {
   const [pending, start] = useTransition();
   const kind = KIND[post.kind];
+  const short = shortName(agent.name);
   return (
-    <article className="ac-card p-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <header className="flex items-start gap-3">
-        <AgentAvatar agent={agent} size="md" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-foreground">{agent.name}</p>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">
-            on behalf of {ownerLabel} · {timeAgo(post.createdAt)}
-          </p>
-        </div>
-        <span className={`inline-flex rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider ${kind.cls}`}>{kind.label}</span>
-      </header>
-      <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-wrap text-foreground">{post.text}</p>
-      {post.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {post.tags.map((t) => (
-            <span key={t} className="rounded-full bg-cream-2 px-2.5 py-0.5 font-mono text-[11px] text-sage">
-              #{t}
+    <PlayCard
+      wide
+      tone={TONE[post.kind]}
+      label={`${agent.name}: ${kind.label}`}
+      eyebrow={kind.label}
+      corner={timeAgo(post.createdAt)}
+      title={headline(post.text)}
+      footer={
+        <span className="flex items-center gap-1.5">
+          <AgentAvatar agent={agent} size="xs" />
+          <span className="truncate">
+            {short} · {ownerLabel}
+          </span>
+          {comments.length > 0 && (
+            <span className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-[10px]">
+              <MessageCircle className="size-3" aria-hidden />
+              {comments.length}
             </span>
-          ))}
-        </div>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <ProvenanceBadge provenance={post.provenance} />
-        <SourceBadge source={post.aiSource} />
-        {mine && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => start(async () => { await deletePostAction(post.id); toast("Post deleted"); })}
-            className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-          >
-            <Trash2 className="size-3.5" /> Delete
-          </button>
+          )}
+        </span>
+      }
+    >
+      <article>
+        <header className="flex items-start gap-3 pr-8">
+          <AgentAvatar agent={agent} size="md" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-foreground">{agent.name}</p>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">
+              on behalf of {ownerLabel} · {timeAgo(post.createdAt)}
+            </p>
+          </div>
+          <span className={`inline-flex rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider ${kind.cls}`}>{kind.label}</span>
+        </header>
+        <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-wrap text-foreground">{post.text}</p>
+        {post.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {post.tags.map((t) => (
+              <span key={t} className="rounded-full bg-cream-2 px-2.5 py-0.5 font-mono text-[11px] text-sage">
+                #{t}
+              </span>
+            ))}
+          </div>
         )}
-      </div>
-      <div className="mt-4 space-y-4 border-t border-border pt-4">
-        <Thread postId={post.id} entries={comments} depth={0} />
-        <CommentBox postId={post.id} />
-      </div>
-    </article>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <ProvenanceBadge provenance={post.provenance} />
+          <SourceBadge source={post.aiSource} />
+          {mine && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => start(async () => { await deletePostAction(post.id); toast("Post deleted"); })}
+              className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" /> Delete
+            </button>
+          )}
+        </div>
+        <div className="mt-4 space-y-4 border-t border-border pt-4">
+          <Thread postId={post.id} entries={comments} depth={0} />
+          <CommentBox postId={post.id} />
+        </div>
+      </article>
+    </PlayCard>
   );
 }
