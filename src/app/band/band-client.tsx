@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { BAND_TOPICS, type BandPublishInterval, type BandSettings, type BandTopic, type BandTranscript, type BandTranscriptStatus } from "@/lib/types";
 import type { getBandOverview } from "@/lib/band";
-import { publishNowAction, saveBandSettingsAction } from "./actions";
+import type { CaptureState } from "@/lib/band/capture";
+import { publishNowAction, saveBandSettingsAction, startCaptureAction, stopCaptureAction } from "./actions";
 
 type Overview = Awaited<ReturnType<typeof getBandOverview>>;
 type Patch = Parameters<typeof saveBandSettingsAction>[0];
@@ -39,7 +40,7 @@ const range = (t: BandTranscript) => {
 };
 
 // Labels arrive as props: @/lib/band touches the store (node:fs) and must stay out of the client bundle.
-export function BandPanel({ data, topicLabels: BAND_TOPIC_LABELS, intervalLabels: INTERVAL_LABELS }: { data: Overview; topicLabels: Labels; intervalLabels: Intervals }) {
+export function BandPanel({ data, capture, topicLabels: BAND_TOPIC_LABELS, intervalLabels: INTERVAL_LABELS }: { data: Overview; capture: CaptureState; topicLabels: Labels; intervalLabels: Intervals }) {
   const INTERVALS = Object.keys(INTERVAL_LABELS) as BandPublishInterval[];
   const [settings, setSettings] = useState<BandSettings>(data.settings);
   const [, start] = useTransition();
@@ -80,7 +81,23 @@ export function BandPanel({ data, topicLabels: BAND_TOPIC_LABELS, intervalLabels
     setPublishing(false);
   };
 
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const toggleCapture = async () => {
+    setCaptureBusy(true);
+    try {
+      const r = await (capture.running ? stopCaptureAction() : startCaptureAction());
+      if (r.error) toast.error(r.error);
+    } catch {
+      toast.error("Could not change capture");
+    }
+    setCaptureBusy(false);
+  };
+
   const { bridgeOnline, lastSeenSecondsAgo, counts, nextPublishAt, transcripts } = data;
+  const captureOn = bridgeOnline || capture.running;
+  const captureText = capture.running && !capture.mine ? `Capture running for band ${capture.band} on another account`
+    : capture.running ? (bridgeOnline ? `Capture running · last seen ${lastSeenSecondsAgo ?? 0}s ago` : "Capture starting...")
+    : bridgeOnline ? "Capture running outside the app" : "Capture is not running";
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -98,10 +115,21 @@ export function BandPanel({ data, topicLabels: BAND_TOPIC_LABELS, intervalLabels
           />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <span className={`${chip} ${bridgeOnline ? "bg-lime/35 text-forest" : "bg-sand text-sand-foreground"}`} role="status">
-            <span className={`mr-1.5 size-1.5 rounded-full ${bridgeOnline ? "bg-forest" : "bg-sand-foreground"}`} />
-            {bridgeOnline ? `Capture running · last seen ${lastSeenSecondsAgo ?? 0}s ago` : "Capture is not running"}
+          <span className={`${chip} ${captureOn ? "bg-lime/35 text-forest" : "bg-sand text-sand-foreground"}`} role="status">
+            <span className={`mr-1.5 size-1.5 rounded-full ${captureOn ? "bg-forest" : "bg-sand-foreground"}`} />
+            {captureText}
           </span>
+          {(!capture.running || capture.mine) && (
+            <Button
+              size="sm"
+              variant={capture.running ? "outline" : "default"}
+              disabled={captureBusy}
+              onClick={toggleCapture}
+              className={capture.running ? "h-9 px-4" : "h-9 bg-lime px-4 text-forest hover:bg-[#b5f5a3]"}
+            >
+              {captureBusy ? "..." : capture.running ? "Stop capture" : "Start capture"}
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <Label htmlFor="band-number" className="shrink-0">Band number</Label>
             <Input
@@ -126,10 +154,13 @@ export function BandPanel({ data, topicLabels: BAND_TOPIC_LABELS, intervalLabels
             />
           </div>
         </div>
-        {!bridgeOnline && (
-          <p className="mt-3 text-[13px] text-muted-foreground">
-            Start it: <code className="rounded bg-cream-2 px-1.5 py-0.5 font-mono text-xs">cd band-capture &amp;&amp; ./run.sh --usb</code>
-          </p>
+        {capture.running && capture.mine ? (
+          <div className="mt-3 space-y-1 text-[13px] text-muted-foreground">
+            <p>Connects over Bluetooth. Double-tap the band if it is not steady blue (it blinks blue for a minute); capture keeps trying until it connects.</p>
+            {capture.lastLine && <p className="line-clamp-2 font-mono text-xs text-foreground/70">{capture.lastLine}</p>}
+          </div>
+        ) : (
+          !captureOn && <p className="mt-3 text-[13px] text-muted-foreground">Press Start capture, then double-tap the band so it blinks blue.</p>
         )}
       </Card>
 
