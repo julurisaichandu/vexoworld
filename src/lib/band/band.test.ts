@@ -219,6 +219,14 @@ describe("mixed-topic transcripts", () => {
     expect(await reasons()).toEqual(["Gemini was unavailable to leave out Money & finances"]);
     expect((await store.list("posts", { userId }))[0].text).toBe("Great matcha today.");
   });
+  it("the simulator keeps the sentences that name an interest and tags only posted words", async () => {
+    await add("Hey, I just moved to the Mission. I'm obsessed with matcha and want people to play badminton.", ["food_dining"]);
+    await add("Quiet morning at home. Nothing much.", ["food_dining"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    const post = (await store.list("posts", { userId }))[0];
+    expect(post.text).toBe("I'm obsessed with matcha and want people to play badminton. Quiet morning at home.");
+    expect(post.tags).toEqual(["badminton", "matcha"]);
+  });
   it("filters all-off and untagged transcripts", async () => {
     await add("Rent.", ["financial", "work"]);
     await add("Nothing.", []);

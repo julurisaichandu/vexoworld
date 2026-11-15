@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateJson } from "@/lib/ai/gemini";
+import { keywordsIn } from "@/lib/ai/simulator";
 import type { Agent, BandTopic, BandTranscript, Source } from "@/lib/types";
 import { BAND_TOPIC_LABELS } from "./topics";
 
@@ -32,14 +33,18 @@ function voiceOf(agent: Pick<Agent, "personality">) {
   return `Voice: ${p.summary} Tone: ${p.tone}. Style: ${p.postingStyle}. Emoji use: ${p.emojiUse}. Example of how they sound: "${p.sampleVoice}"`;
 }
 
-/** Deterministic fallback: the first sentence of each transcript, joined. */
+/** Deterministic fallback: each transcript's sentences that name an interest (its first sentence when none do), joined. */
 export function simulatePost(transcripts: Pick<BandTranscript, "text" | "topics">[], moneyAllowed: boolean): Written {
   const lines = transcripts
-    .map((t) => t.text.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "")
-    .filter(Boolean)
+    .flatMap((t) => {
+      const sentences = t.text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+      const named = sentences.filter((s) => keywordsIn(s).length);
+      return named.length ? named : sentences.slice(0, 1);
+    })
     .map((s) => (moneyAllowed ? s : s.replace(MONEY, "[amount]")));
-  const topics = [...new Set(transcripts.flatMap((t) => t.topics))].slice(0, 3);
-  return { text: lines.join(" "), tags: cleanTags(topics), aiSource: "simulated" };
+  const text = lines.join(" ");
+  // Tags come from the posted words only, so they never reveal text that was left out.
+  return { text, tags: cleanTags(keywordsIn(text)), aiSource: "simulated" };
 }
 
 export async function writePost(input: {
