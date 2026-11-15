@@ -581,6 +581,7 @@ class TopicTagger(FrameProcessor):
             except ClassifierError as e:
                 why = gemini_failure(e)
                 if why is None:
+                    print("tags: Gemini blocked this segment or gave no usable answer; no topics, so the app filters it")
                     return [], "gemini"
                 print(f"tags: Gemini failed ({why}); keyword rules tag this one")
             except Exception as e:  # noqa: BLE001 - fail closed: no topics means the app filters it
