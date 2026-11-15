@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceAnswer } from "@/components/voice/voice-answer";
 import type { HumanRequest } from "@/lib/types";
-import { enter } from "./status";
+import { PlayCard, type PlayTone } from "@/components/play-card";
+import { timeAgo } from "./status";
 
 type Answer = NonNullable<HumanRequest["answerSource"]>;
 const SOURCE_LABEL: Record<Answer, string> = { voice: "Voice via Deepgram", text: "Typed", simulated_voice: "Simulated voice" };
@@ -21,6 +22,7 @@ const KIND_LABEL: Record<HumanRequest["kind"], string> = {
   approval_intro: "Intro approval",
   approval_post: "Share approval",
 };
+const SHORT_KIND: Record<HumanRequest["kind"], string> = { question: "Question", observation: "Observation", approval_intro: "Intro", approval_post: "Share" };
 const CHIP = "rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider";
 const CHIP_TONE = { sand: "bg-sand text-sand-foreground", live: "bg-lime/35 text-forest", neutral: "bg-cream-2 text-sage" };
 const Chip = ({ tone, children }: { tone: keyof typeof CHIP_TONE; children: React.ReactNode }) => (
@@ -36,13 +38,17 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
   const [editing, setEditing] = useState(false);
   const [edited, setEdited] = useState(r.answerStructured?.summary ?? "");
   const [confirm, setConfirm] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const done = r.status === "approved" || r.status === "rejected" || r.status === "expired";
   const askable = r.kind === "question" || r.kind === "observation";
 
   function after(res: { error?: string } | void, ok: string) {
     if (res && res.error) toast.error(res.error);
-    else toast.success(ok);
+    else {
+      toast.success(ok);
+      setOpen(false);
+    }
     router.refresh();
   }
   const answer = (t: string, source: Answer) => {
@@ -53,9 +59,21 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
     start(async () => after(await decideRequestAction(r.id, decision, opts), ok ?? (decision === "approve" ? "Approved" : "Declined")));
 
   const structured = r.answerStructured;
+  const tone: PlayTone = done ? "paper" : askable ? "sand" : "lime";
 
   return (
-    <div className={`ac-card ${enter} space-y-4 p-6 ${r.status === "pending" || r.status === "review" ? "border-l-4 border-l-lime" : ""}`}>
+    <PlayCard
+      tone={tone}
+      open={open}
+      onOpenChange={setOpen}
+      wide
+      label={`${KIND_LABEL[r.kind]}: ${r.prompt}`}
+      eyebrow={done ? r.status : SHORT_KIND[r.kind]}
+      corner={timeAgo(r.createdAt)}
+      title={r.prompt}
+      footer={<span className="line-clamp-2 opacity-70">{r.context}</span>}
+    >
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="ac-eyebrow">[ {KIND_LABEL[r.kind]} ]</span>
         {r.sensitive && <Chip tone="sand">Sensitive</Chip>}
@@ -174,5 +192,6 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
         </DialogContent>
       </Dialog>
     </div>
+    </PlayCard>
   );
 }

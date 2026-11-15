@@ -72,5 +72,5 @@ export const card = "ac-card";
 export const enter = "animate-in fade-in slide-in-from-bottom-2 duration-500";
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-border bg-cream-2 p-8 text-center text-sm text-muted-foreground">{children}</div>;
+  return <div className="rounded-2xl border border-dashed border-ink/15 px-4 py-3 text-sm text-muted-foreground">{children}</div>;
 }
