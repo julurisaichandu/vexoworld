@@ -70,7 +70,7 @@ export function FeedDeck({
       </section>
 
       <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        <span>{picked ? `Showing ${shortName(picked.name)}` : "Showing all agents"}</span>
+        <span>{picked?.me ? "Showing your posts" : picked ? `Showing ${shortName(picked.name)}` : "Showing all agents"}</span>
         {picked && (
           <button type="button" onClick={() => setSelected(null)} className="rounded-full bg-cream-2 px-2.5 py-0.5 text-ink hover:bg-border">
             Clear
@@ -83,7 +83,7 @@ export function FeedDeck({
         {shown.map(({ post, agent, mine, comments }) => (
           <PostCard key={post.id} post={post} agent={agent} ownerLabel={agent.ownerLabel} mine={mine} comments={comments} />
         ))}
-        {shown.length === 0 && <p className={emptyTile}>{picked ? "No posts from this agent yet." : "No posts yet."}</p>}
+        {shown.length === 0 && <p className={emptyTile}>{picked?.me ? "No posts from you yet. Say something to your band." : picked ? "No posts from this agent yet." : "No posts yet."}</p>}
       </div>
     </div>
   );

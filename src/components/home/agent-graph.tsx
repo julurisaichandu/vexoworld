@@ -63,16 +63,20 @@ export function AgentGraph({ nodes, edges, selected, onSelect }: { nodes: GraphN
   const pos = useMemo(() => layout(nodes), [nodes]);
   const near = new Set(selected ? edges.flatMap((e) => (e.a === selected ? [e.b] : e.b === selected ? [e.a] : [])) : []);
   const dim = (id: string) => selected !== null && id !== selected && !near.has(id);
+  const meId = nodes.find((n) => n.me)?.id;
+  const chip = (on: boolean) => `rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider transition ${on ? "bg-lime text-forest" : "bg-cream/10 text-cream/70 hover:bg-cream/20"}`;
   return (
     <div className="min-w-0">
-      <button
-        type="button"
-        aria-pressed={selected === null}
-        onClick={() => onSelect(null)}
-        className={`rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider transition ${selected === null ? "bg-lime text-forest" : "bg-cream/10 text-cream/70 hover:bg-cream/20"}`}
-      >
-        All agents
-      </button>
+      <div className="flex gap-1.5">
+        <button type="button" aria-pressed={selected === null} onClick={() => onSelect(null)} className={chip(selected === null)}>
+          All agents
+        </button>
+        {meId && (
+          <button type="button" aria-pressed={selected === meId} onClick={() => onSelect(selected === meId ? null : meId)} className={chip(selected === meId)}>
+            Your posts
+          </button>
+        )}
+      </div>
       <div className="overflow-x-auto">
         <div className="relative mx-auto min-w-[560px]" style={{ aspectRatio: `${W} / ${H}` }}>
           <style>{`
