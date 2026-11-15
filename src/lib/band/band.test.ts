@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generateJson } from "@/lib/ai/gemini";
 import { store } from "@/lib/store";
 import type { BandTopic } from "@/lib/types";
 import { BAND_TOPICS } from "@/lib/types";
@@ -7,6 +8,15 @@ import { POST as transcriptPOST } from "@/app/api/band/transcripts/route";
 import {
   capWords, getBandSettings, ingestTranscript, publishDue, publishNow, signBand, updateBandSettings, verifyBandRequest,
 } from "@/lib/band";
+
+vi.mock("@/lib/ai/gemini", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/gemini")>()), generateJson: vi.fn(async () => null) }));
+const gemini = vi.mocked(generateJson);
+/** Fake Gemini: the writer echoes every transcript it was given (it cannot leave anything out); the checker flags "rent" as financial, or returns null. */
+const fakeGemini = (check: "ok" | "null") =>
+  gemini.mockImplementation((async (system: string, prompt: string) => {
+    if (system.startsWith("Write ONE")) return { text: [...prompt.matchAll(/<transcript[^>]*>\n([\s\S]*?)\n<\/transcript>/g)].map((m) => m[1]).join(" "), tags: [] };
+    return check === "null" ? null : { mentioned: /\brent\b/.test(prompt) ? ["financial"] : [] };
+  }) as never);
 
 const SECRET = "x".repeat(32);
 process.env.VEXOWORLD_BAND_SECRET = SECRET;
@@ -32,6 +42,7 @@ const add = (text: string, topics: BandTopic[]) =>
 const stat = async () => (await store.list("bandTranscripts", { userId })).map((t) => t.status);
 
 beforeEach(async () => {
+  gemini.mockReset().mockResolvedValue(null);
   await store.reset();
   userId = (await store.list("agents"))[0].userId;
   await store.update("agents", (await store.list("agents", { userId }))[0].id, { paused: false });
@@ -100,7 +111,7 @@ describe("publishing", () => {
     expect(await stat()).toEqual(expect.arrayContaining(["filtered", "filtered", "published"]));
     const filtered = (await store.list("bandTranscripts", { userId, status: "filtered" })).map((t) => t.reason);
     expect(filtered).toContain("No topic detected");
-    expect(filtered).toContain("Mentions Money & finances, which you have not switched on");
+    expect(filtered).toContain("Only mentions Money & finances, which you have not switched on");
     const post = (await store.list("posts", { userId }))[0];
     expect(post.text).toContain("ramen");
     expect(post.text).not.toContain("rent");
@@ -149,6 +160,66 @@ describe("publishing", () => {
     expect((await store.list("posts", { userId })).length).toBe(before + 1);
     await add("Second work thing.", ["work"]);
     expect(await publishDue()).toBe(0); // 1m interval not elapsed again
+  });
+});
+
+describe("mixed-topic transcripts", () => {
+  const texts = async (status: string) => (await store.list("bandTranscripts", { userId, status: status as never })).map((t) => t.text);
+  const reasons = async () => (await store.list("bandTranscripts", { userId, status: "filtered" })).map((t) => t.reason);
+  beforeEach(() => updateBandSettings(userId, { topics: { food_dining: true } }));
+
+  it("publishes a mixed transcript when the check passes", async () => {
+    fakeGemini("ok");
+    await add("Ramen for lunch.", ["food_dining", "financial"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect(await stat()).toEqual(["published"]);
+    expect((await getBandSettings(userId)).lastOutcome).toBe("Published 1 post from 1 transcript (left out Money & finances).");
+  });
+  it("a flagged mixed transcript is filtered and the clean one still publishes", async () => {
+    fakeGemini("ok");
+    await add("Paid the rent after ramen.", ["food_dining", "financial"]);
+    await add("Great matcha today.", ["food_dining"]);
+    const r = await publishNow(userId);
+    expect(r.outcome).toBe("published");
+    expect(await texts("published")).toEqual(["Great matcha today."]);
+    expect(await reasons()).toEqual(["Your agent could not leave out Money & finances, so this was not posted"]);
+    const post = (await store.list("posts", { userId }))[0];
+    expect(post.text).toBe("Great matcha today.");
+    expect((await getBandSettings(userId)).lastOutcome).toBe("Published 1 post from 1 transcript; 1 filtered.");
+    expect(gemini).toHaveBeenCalledTimes(3); // write, check, one retry write; no second check
+  });
+  it("fails closed when the check is unavailable", async () => {
+    fakeGemini("null");
+    await add("Ramen for lunch.", ["food_dining", "financial"]);
+    const before = (await store.list("posts", { userId })).length;
+    expect((await publishNow(userId)).outcome).toBe("nothing");
+    expect((await store.list("posts", { userId })).length).toBe(before);
+    expect(await reasons()).toEqual(["Gemini was unavailable to leave out Money & finances"]);
+  });
+  it("the simulator only uses clean transcripts", async () => {
+    await add("Rent was due. Ramen too.", ["food_dining", "financial"]);
+    await add("Great matcha today.", ["food_dining"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect(await reasons()).toEqual(["Gemini was unavailable to leave out Money & finances"]);
+    expect((await store.list("posts", { userId }))[0].text).toBe("Great matcha today.");
+  });
+  it("filters all-off and untagged transcripts", async () => {
+    await add("Rent.", ["financial", "work"]);
+    await add("Nothing.", []);
+    expect((await publishNow(userId)).outcome).toBe("nothing");
+    expect((await reasons()).sort()).toEqual(["No topic detected", "Only mentions Money & finances, Work & career, which you have not switched on"]);
+  });
+  it("still caps a mixed post at 199 words", async () => {
+    fakeGemini("ok");
+    await add(Array.from({ length: 400 }, (_, i) => `w${i}`).join(" ") + ".", ["food_dining", "work"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect((await store.list("posts", { userId }))[0].text.split(/\s+/).length).toBeLessThanOrEqual(199);
+  });
+  it("a published band post about matcha reaches matching neighbours", async () => {
+    const maya = (await store.list("users")).find((u) => u.name === "Maya")!;
+    await add("Hunting for a great matcha latte nearby.", ["food_dining"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect(await store.list("activity", { userId: maya.id, type: "match.found" })).not.toHaveLength(0);
   });
 });
 

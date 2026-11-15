@@ -25,7 +25,9 @@ band listens until you switch it off. If the band drops, it reconnects and appli
 - With `GEMINI_API_KEY` set, the text of each segment also goes to Google to tag its topics. On Google's
   free tier, Google may use that text to improve its products. Without the key, keyword rules run on
   this computer.
-- The app only publishes segments whose topics you switched on. Everything else is stored as filtered.
+- The app writes posts only about topics you switched on and leaves the rest out; a second Gemini check
+  stops any post that still mentions a switched-off topic. Segments with no detected topic, or only
+  switched-off topics, are stored as filtered.
 - This program never prints a transcript, a key or the secret.
 
 ## Setup

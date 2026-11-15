@@ -5,17 +5,17 @@ import { BAND_TOPICS } from "@/lib/types";
 import type { BandSettings, BandTopic, BandTranscript } from "@/lib/types";
 import { getBandSettings } from "./settings";
 import { capWords, INTERVAL_MS, MAX_POST_WORDS, BAND_TOPIC_LABELS } from "./topics";
-import { simulatePost, writePost } from "./writer";
+import { checkPost, writePost } from "./writer";
 
 export type PublishResult = { outcome: "published" | "needs_approval" | "nothing" | "skipped"; reason: string; postId?: string };
 
 const BATCH = 12; // transcripts folded into one post; the rest wait for the next round
 
-/** Why a transcript may not be published, or null when every topic it touches is switched on. */
+/** Why a transcript may not be published, or null when at least one topic it touches is switched on (clean or mixed). */
 function blockReason(t: BandTranscript, topics: BandSettings["topics"]): string | null {
   if (!t.topics.length) return "No topic detected";
-  const off = t.topics.find((x) => !topics[x]);
-  return off ? `Mentions ${BAND_TOPIC_LABELS[off].label}, which you have not switched on` : null;
+  if (t.topics.some((x) => topics[x])) return null;
+  return `Only mentions ${t.topics.map((x) => BAND_TOPIC_LABELS[x].label).join(", ")}, which you have not switched on`;
 }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -47,17 +47,37 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
   const batch = eligible.slice(0, BATCH);
   const allowed = BAND_TOPICS.filter((t) => s.topics[t]) as BandTopic[];
   const blocked = BAND_TOPICS.filter((t) => !s.topics[t]) as BandTopic[];
-  const safe = batch.map((t) => ({ ...t, text: redact(t.text) }));
-  let written = await writePost({ agent, transcripts: safe, allowed, blocked });
-  let text = capWords(redact(written.text), MAX_POST_WORDS);
-  if (!text) {
-    written = simulatePost(safe, allowed.includes("financial"));
-    text = capWords(redact(written.text), MAX_POST_WORDS);
+  const isClean = (t: BandTranscript) => t.topics.every((x) => s.topics[x]);
+  const offLabels = (ts: BandTranscript[]) =>
+    [...new Set(ts.flatMap((t) => t.topics.filter((x) => !s.topics[x])))].map((x) => BAND_TOPIC_LABELS[x].label).join(", ");
+  const draft = async (ts: BandTranscript[]) => {
+    const w = await writePost({ agent, transcripts: ts.map((t) => ({ ...t, text: redact(t.text) })), allowed, blocked });
+    return { ...w, text: capWords(redact(w.text), MAX_POST_WORDS) };
+  };
+  let used = batch;
+  let written = await draft(batch);
+  const mixed = batch.filter((t) => !isClean(t));
+  if (mixed.length) {
+    // The simulator only used clean transcripts; a live post must pass the second check. Fail closed, retry once from clean ones.
+    const simulated = written.aiSource === "simulated";
+    const hit = written.text && !simulated ? await checkPost(written.text, blocked) : [];
+    if (simulated || hit === null || hit.length) {
+      for (const t of mixed) {
+        const what = offLabels([t]);
+        const reason = simulated || hit === null ? `Gemini was unavailable to leave out ${what}` : `Your agent could not leave out ${what}, so this was not posted`;
+        await store.update("bandTranscripts", t.id, { status: "filtered", reason });
+      }
+      filtered += mixed.length;
+      used = batch.filter(isClean);
+      if (!simulated) written = used.length ? await draft(used) : { ...written, text: "" };
+    }
   }
+  const text = written.text;
   if (!text) return finish("nothing", "Nothing to publish: the transcripts had nothing postable.");
   const { tags, aiSource } = written;
-  const mark = (patch: Partial<BandTranscript>) => Promise.all(batch.map((t) => store.update("bandTranscripts", t.id, patch)));
-  const tail = filtered ? `; ${filtered} filtered` : "";
+  const mark = (patch: Partial<BandTranscript>) => Promise.all(used.map((t) => store.update("bandTranscripts", t.id, patch)));
+  const left = offLabels(used.filter((t) => !isClean(t)));
+  const tail = `${left ? ` (left out ${left})` : ""}${filtered ? `; ${filtered} filtered` : ""}`;
 
   if (agent.permissions.requirePostApproval) {
     await store.insert("humanRequests", {
@@ -65,7 +85,7 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
       context: "Written from your Vexo band transcripts.", postDraft: text, aiSource,
     });
     await mark({ status: "awaiting_approval" });
-    return finish("needs_approval", `Draft from ${plural(batch.length, "transcript")} is waiting for your approval${tail}.`);
+    return finish("needs_approval", `Draft from ${plural(used.length, "transcript")} is waiting for your approval${tail}.`);
   }
 
   const post = await store.insert("posts", { agentId: agent.id, userId: s.userId, text, kind: "update", tags, provenance: "ai_generated", aiSource });
@@ -74,7 +94,7 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
   await logActivity({ userId: s.userId, agentId: agent.id, type: "post.published", text: "Published a post from your Vexo band", refType: "post", refId: post.id });
   await matchPost(post.id).catch(() => []);
   await mark({ status: "published", postId: post.id });
-  return finish("published", `Published 1 post from ${plural(batch.length, "transcript")}${tail}.`, { postId: post.id }, { lastPublishedAt: at });
+  return finish("published", `Published 1 post from ${plural(used.length, "transcript")}${tail}.`, { postId: post.id }, { lastPublishedAt: at });
 }
 
 /** Takes the slot (compare-and-set on lastPublishedAt) so two runs never publish the same transcripts, then runs. Null when another run holds it. */

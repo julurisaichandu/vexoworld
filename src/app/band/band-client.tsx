@@ -174,7 +174,7 @@ export function BandPanel({ data, topicLabels: BAND_TOPIC_LABELS, intervalLabels
         </div>
       </Card>
 
-      <Card eyebrow="Filters" title="What your agent may share" desc="Your agent only publishes transcripts whose every topic is switched on. Everything else stays private.">
+      <Card eyebrow="Filters" title="What your agent may share" desc="Your agent writes only about switched-on topics and leaves the rest out. A second Gemini check stops any post that still mentions a switched-off topic. Transcripts with no detected topic stay private.">
         <div className="mb-2 flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setTopics(Object.fromEntries(BAND_TOPICS.map((t) => [t, true])))}>All on</Button>
           <Button variant="outline" size="sm" onClick={() => setTopics(Object.fromEntries(BAND_TOPICS.map((t) => [t, false])))}>All off</Button>
