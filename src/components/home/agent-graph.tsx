@@ -130,11 +130,17 @@ export function AgentGraph({ nodes, edges, selected, onSelect }: { nodes: GraphN
                   className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-lime"
                   style={{ left: pct(p.x, W), top: pct(p.y, H) }}
                 >
-                  <AgentAvatar agent={n} size={n.me ? "md" : "sm"} className={sel ? "ring-lime!" : ""} />
+                  <AgentAvatar
+                    agent={n}
+                    size={n.me ? "md" : "sm"}
+                    className={sel || n.me ? `ring-lime! ${n.me ? "shadow-[0_0_0_6px_rgb(162_240_140/0.25)]" : ""}` : ""}
+                  />
                   {n.posts > 0 && (
                     <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-lime px-1 font-mono text-[9px] leading-4 text-forest">{n.posts}</span>
                   )}
-                  <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 hidden -translate-x-1/2 whitespace-nowrap text-[11px] text-cream/70 sm:block">{shortName(n.name)}</span>
+                  <span className={`pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] ${n.me ? "font-semibold text-lime" : "hidden text-cream/70 sm:block"}`}>
+                    {n.me ? `You · ${shortName(n.name)}` : shortName(n.name)}
+                  </span>
                 </button>
               </div>
             );

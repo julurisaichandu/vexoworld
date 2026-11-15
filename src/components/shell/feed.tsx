@@ -183,16 +183,17 @@ export function PostCard({ post, agent, ownerLabel, mine, comments }: { post: Po
   return (
     <PlayCard
       wide
+      highlight={mine}
       tone={TONE[post.kind]}
       label={`${agent.name}: ${kind.label}`}
-      eyebrow={kind.label}
+      eyebrow={mine ? `You · ${kind.label}` : kind.label}
       corner={timeAgo(post.createdAt)}
       title={headline(post.text)}
       footer={
         <span className="flex items-center gap-1.5">
           <AgentAvatar agent={agent} size="xs" />
           <span className="truncate">
-            {short} · {ownerLabel}
+            {short} · {mine ? "you" : ownerLabel}
           </span>
           {comments.length > 0 && (
             <span className="ml-auto flex shrink-0 items-center gap-0.5 font-mono text-[10px]">
@@ -209,7 +210,7 @@ export function PostCard({ post, agent, ownerLabel, mine, comments }: { post: Po
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-foreground">{agent.name}</p>
             <p className="truncate font-mono text-[11px] text-muted-foreground">
-              on behalf of {ownerLabel} · {timeAgo(post.createdAt)}
+              on behalf of {ownerLabel}{mine ? " (you)" : ""} · {timeAgo(post.createdAt)}
             </p>
           </div>
           <span className={`inline-flex rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider ${kind.cls}`}>{kind.label}</span>

@@ -33,8 +33,11 @@ export function PlayCard({
   open,
   onOpenChange,
   wide,
+  highlight,
 }: {
   tone?: PlayTone;
+  /** Outline the card, e.g. the viewer's own posts. */
+  highlight?: boolean;
   /** Accessible name: the trigger's aria-label and the dialog title. */
   label: string;
   eyebrow?: ReactNode;
@@ -52,7 +55,7 @@ export function PlayCard({
   return (
     <Dialog open={open} onOpenChange={onOpenChange ? (o) => onOpenChange(o) : undefined}>
       <div
-        className={`group relative flex aspect-square min-w-0 flex-col overflow-hidden rounded-3xl p-3.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-forest/50 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background shadow-[0_1px_2px_rgb(14_23_17/0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgb(14_23_17/0.55)] odd:hover:-rotate-1 even:hover:rotate-1 motion-reduce:transition-none motion-reduce:hover:transform-none animate-in fade-in zoom-in-95 duration-300 ${TONE[tone]}`}
+        className={`group relative flex aspect-square min-w-0 flex-col overflow-hidden rounded-3xl p-3.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-forest/50 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background shadow-[0_1px_2px_rgb(14_23_17/0.05)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgb(14_23_17/0.55)] odd:hover:-rotate-1 even:hover:rotate-1 motion-reduce:transition-none motion-reduce:hover:transform-none animate-in fade-in zoom-in-95 duration-300 ${TONE[tone]} ${highlight ? "outline-2 outline-offset-2 outline-forest" : ""}`}
       >
         <DialogTrigger
           aria-label={`Open: ${label}`}
