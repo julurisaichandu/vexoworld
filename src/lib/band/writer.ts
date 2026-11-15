@@ -9,7 +9,7 @@ export type Written = { text: string; tags: string[]; aiSource: Source };
 
 const MONEY = /[$€£]\s?\d[\d,.]*\s?(?:k|m|million|thousand)?|\b\d[\d,.]*\s?(?:dollars|bucks|euros|usd)\b/gi;
 
-const cleanTags = (tags: string[]) =>
+export const cleanTags = (tags: string[]) =>
   [...new Set(tags.map((t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24)).filter(Boolean))].slice(0, 4);
 
 const SYSTEM = (labels: string[], blocked: string[], money: boolean, voice: string) =>

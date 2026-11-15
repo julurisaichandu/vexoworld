@@ -5,7 +5,7 @@ import { BAND_TOPICS } from "@/lib/types";
 import type { BandSettings, BandTopic, BandTranscript } from "@/lib/types";
 import { getBandSettings } from "./settings";
 import { capWords, INTERVAL_MS, MAX_POST_WORDS, BAND_TOPIC_LABELS } from "./topics";
-import { checkPost, writePost } from "./writer";
+import { checkPost, cleanTags, writePost } from "./writer";
 
 export type PublishResult = { outcome: "published" | "needs_approval" | "nothing" | "skipped"; reason: string; postId?: string };
 
@@ -60,11 +60,14 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
   if (mixed.length) {
     // The simulator only used clean transcripts; a live post must pass the second check. Fail closed, retry once from clean ones.
     const simulated = written.aiSource === "simulated";
+    const empty = !simulated && !written.text; // live and nothing switched-on was left in the batch
     const hit = written.text && !simulated ? await checkPost(written.text, blocked) : [];
-    if (simulated || hit === null || hit.length) {
+    if (simulated || empty || hit === null || hit.length) {
       for (const t of mixed) {
         const what = offLabels([t]);
-        const reason = simulated || hit === null ? `Gemini was unavailable to leave out ${what}` : `Your agent could not leave out ${what}, so this was not posted`;
+        const reason = simulated || hit === null ? `Gemini was unavailable to leave out ${what}`
+          : empty ? `Nothing switched on was left to post after leaving out ${what}`
+          : `Your agent could not leave out ${what}, so this was not posted`;
         await store.update("bandTranscripts", t.id, { status: "filtered", reason });
       }
       filtered += mixed.length;
@@ -73,8 +76,15 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
     }
   }
   const text = written.text;
-  if (!text) return finish("nothing", "Nothing to publish: the transcripts had nothing postable.");
-  const { tags, aiSource } = written;
+  if (!text) {
+    // Nothing postable: filter what was tried so it cannot block the queue forever.
+    for (const t of used) await store.update("bandTranscripts", t.id, { status: "filtered", reason: "Your agent found nothing to post" });
+    filtered += used.length;
+    return finish("nothing", `Nothing to publish${filtered ? `: ${plural(filtered, "transcript")} filtered` : ""}.`);
+  }
+  // Gemini's tags are never checked, so a post that used a mixed transcript gets tags from its switched-on topics instead.
+  const tags = used.some((t) => !isClean(t)) ? cleanTags(used.flatMap((t) => t.topics.filter((x) => s.topics[x]))) : written.tags;
+  const { aiSource } = written;
   const mark = (patch: Partial<BandTranscript>) => Promise.all(used.map((t) => store.update("bandTranscripts", t.id, patch)));
   const left = offLabels(used.filter((t) => !isClean(t)));
   const tail = `${left ? ` (left out ${left})` : ""}${filtered ? `; ${filtered} filtered` : ""}`;

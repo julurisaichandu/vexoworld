@@ -196,6 +196,22 @@ describe("mixed-topic transcripts", () => {
     expect((await store.list("posts", { userId })).length).toBe(before);
     expect(await reasons()).toEqual(["Gemini was unavailable to leave out Money & finances"]);
   });
+  it("ignores the writer's own tags on a mixed post", async () => {
+    gemini.mockImplementation((async (system: string) =>
+      system.startsWith("Write ONE") ? { text: "Ramen for lunch.", tags: ["ramen", "rent", "salary"] } : { mentioned: [] }) as never);
+    await add("Ramen for lunch, then paid rent.", ["food_dining", "financial"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect((await store.list("posts", { userId }))[0].tags).toEqual(["food-dining"]);
+  });
+  it("an empty live reply does not leave transcripts pending", async () => {
+    gemini.mockImplementation((async (system: string) => (system.startsWith("Write ONE") ? { text: "", tags: [] } : { mentioned: [] })) as never);
+    await add("Paid the rent.", ["food_dining", "financial"]);
+    await add("Good ramen.", ["food_dining"]);
+    const r = await publishNow(userId);
+    expect(r.outcome).toBe("nothing");
+    expect(r.reason).toBe("Nothing to publish: 2 transcripts filtered.");
+    expect(await stat()).toEqual(["filtered", "filtered"]);
+  });
   it("the simulator only uses clean transcripts", async () => {
     await add("Rent was due. Ramen too.", ["food_dining", "financial"]);
     await add("Great matcha today.", ["food_dining"]);
