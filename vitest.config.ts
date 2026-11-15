@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./src/lib/engine/test-setup.ts"],
-    env: { GEMINI_API_KEY: "", AGENT_CONNECT_STEP_MS: "0" },
+    env: { GEMINI_API_KEY: "", VEXOWORLD_STEP_MS: "0" },
     testTimeout: 30_000,
   },
 });

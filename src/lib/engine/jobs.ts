@@ -8,8 +8,8 @@ import { discover } from "./missions";
 const TIMEOUT_MS = 20_000;
 const MAX_ATTEMPTS = 3;
 
-/** Pause between agent turns so the UI visibly progresses. AGENT_CONNECT_STEP_MS=0 disables it (tests). */
-export const stepDelay = () => (process.env.AGENT_CONNECT_STEP_MS !== undefined ? Number(process.env.AGENT_CONNECT_STEP_MS) : 800 + Math.random() * 700);
+/** Pause between agent turns so the UI visibly progresses. VEXOWORLD_STEP_MS=0 disables it (tests). */
+export const stepDelay = () => (process.env.VEXOWORLD_STEP_MS !== undefined ? Number(process.env.VEXOWORLD_STEP_MS) : 800 + Math.random() * 700);
 
 export const enqueue = (type: string, payload: Record<string, unknown>, delayMs = 0): Promise<Job> =>
   store.insert("jobs", {

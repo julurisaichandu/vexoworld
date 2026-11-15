@@ -1,4 +1,4 @@
--- Agent Connect: optional Supabase backend (AGENT_CONNECT_DATA_BACKEND=supabase).
+-- VexoWorld: optional Supabase backend (VEXOWORLD_DATA_BACKEND=supabase).
 --
 -- Each table holds the full TypeScript row in `data` (jsonb), so the shapes in src/lib/types.ts stay
 -- the single source of truth. Columns the store filters on are generated from `data`. `created_at` is

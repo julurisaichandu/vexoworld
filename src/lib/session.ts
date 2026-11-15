@@ -8,7 +8,7 @@ const WEEK = 60 * 60 * 24 * 7;
 function secret() {
   const s = process.env.SESSION_SECRET;
   if (!s && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required in production");
-  return s || "dev-only-agent-connect-secret";
+  return s || "dev-only-vexoworld-secret";
 }
 
 const sign = (body: string) => crypto.createHmac("sha256", secret()).update(body).digest("base64url");

@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { buildSeed } from "./seed";
 import type { TableName, Tables } from "./types";
 
-// Optional Supabase backend (AGENT_CONNECT_DATA_BACKEND=supabase). Server-only: uses the secret key.
+// Optional Supabase backend (VEXOWORLD_DATA_BACKEND=supabase). Server-only: uses the secret key.
 // Same semantics as the local store; each row lives in `data` jsonb, see supabase/migrations/0001_init.sql.
 
 let client: SupabaseClient | undefined;

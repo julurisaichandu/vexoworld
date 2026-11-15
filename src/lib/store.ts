@@ -9,7 +9,7 @@ import type { Database, TableName, Tables } from "./types";
 // `npm run worker` can share it. Every call is atomic on its own; use updateIf for state transitions.
 // ponytail: whole-file rewrite per write, fine for a demo-sized network; Supabase adapter for real scale.
 
-const dataDir = () => process.env.AGENT_CONNECT_DATA_DIR ?? path.join(process.cwd(), ".data");
+const dataDir = () => process.env.VEXOWORLD_DATA_DIR ?? path.join(process.cwd(), ".data");
 const dbFile = () => path.join(dataDir(), "db.json");
 const lockDir = () => dbFile() + ".lock";
 
@@ -101,7 +101,7 @@ function withDb<T>(fn: (db: Database) => T, write: boolean): Promise<T> {
   return p;
 }
 
-const useSupabase = () => process.env.AGENT_CONNECT_DATA_BACKEND === "supabase";
+const supabaseEnabled = () => process.env.VEXOWORLD_DATA_BACKEND === "supabase";
 
 const matches = <T>(row: T, where?: Partial<T>) =>
   !where || Object.entries(where).every(([k, v]) => (row as Record<string, unknown>)[k] === v);
@@ -118,7 +118,7 @@ export const store = {
     where?: Partial<Tables[K]>,
     opts: { order?: "asc" | "desc"; limit?: number } = {},
   ): Promise<Tables[K][]> {
-    if (useSupabase()) return supabaseStore.list(table, where, opts);
+    if (supabaseEnabled()) return supabaseStore.list(table, where, opts);
     return withDb((db) => {
       const rows = (db[table] as Tables[K][]).filter((r) => matches(r, where));
       const dir = opts.order === "asc" ? 1 : -1;
@@ -128,7 +128,7 @@ export const store = {
   },
 
   get<K extends TableName>(table: K, id: string): Promise<Tables[K] | null> {
-    if (useSupabase()) return supabaseStore.get(table, id);
+    if (supabaseEnabled()) return supabaseStore.get(table, id);
     return withDb((db) => (db[table] as Tables[K][]).find((r) => (r as { id: string }).id === id) ?? null, false);
   },
 
@@ -136,7 +136,7 @@ export const store = {
     const full = { id: newId(PREFIX[table]), createdAt: now(), ...row } as Tables[K];
     if ("updatedAt" in (full as object) || table === "missions" || table === "collaborations" || table === "jobs")
       (full as { updatedAt?: string }).updatedAt ??= (full as { createdAt: string }).createdAt;
-    if (useSupabase()) return supabaseStore.insert(table, full);
+    if (supabaseEnabled()) return supabaseStore.insert(table, full);
     return withDb((db) => {
       (db[table] as Tables[K][]).push(full);
       return full;
@@ -154,7 +154,7 @@ export const store = {
     where: Partial<Tables[K]>,
     patch: Partial<Tables[K]>,
   ): Promise<Tables[K] | null> {
-    if (useSupabase()) return supabaseStore.updateIf(table, id, where, patch, now());
+    if (supabaseEnabled()) return supabaseStore.updateIf(table, id, where, patch, now());
     return withDb((db) => {
       const rows = db[table] as Tables[K][];
       const i = rows.findIndex((r) => (r as { id: string }).id === id);
@@ -167,7 +167,7 @@ export const store = {
   },
 
   remove<K extends TableName>(table: K, id: string): Promise<boolean> {
-    if (useSupabase()) return supabaseStore.remove(table, id);
+    if (supabaseEnabled()) return supabaseStore.remove(table, id);
     return withDb((db) => {
       const rows = db[table] as Tables[K][];
       const i = rows.findIndex((r) => (r as { id: string }).id === id);
@@ -178,7 +178,7 @@ export const store = {
 
   /** Rebuilds the database from the demo seed. */
   reset(): Promise<void> {
-    if (useSupabase()) return supabaseStore.reset();
+    if (supabaseEnabled()) return supabaseStore.reset();
     return withDb((db) => {
       Object.assign(db, emptyDb(), buildSeed());
     }, true);

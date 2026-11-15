@@ -35,10 +35,10 @@ from pipecat.services.llm_service import FunctionCallParams
 from pipecat.transports.base_transport import TransportParams
 from pipecat.workers.runner import WorkerRunner
 
-APP_URL = os.getenv("AGENT_CONNECT_URL", "http://localhost:3000").rstrip("/")
+APP_URL = os.getenv("VEXOWORLD_URL", "http://localhost:3000").rstrip("/")
 
 SYSTEM_PROMPT = (
-    "You are the user's personal AI agent on Agent Connect. Speak in one or two short sentences; "
+    "You are the user's personal AI agent on VexoWorld. Speak in one or two short sentences; "
     "this is a voice conversation. Use your tools to find people, ask the network, summarize "
     "activity and handle pending requests. Before approving anything that shares contact details "
     "or introduces people, read it back and require the human to say 'confirm' (pass "

@@ -2,7 +2,7 @@ import { processJobs } from "../src/lib/engine";
 
 // Optional: the app also processes jobs inline (kickJobs + /api/jobs/tick).
 async function main() {
-  console.log("agent-connect worker running");
+  console.log("vexoworld worker running");
   for (;;) {
     try {
       await processJobs();
