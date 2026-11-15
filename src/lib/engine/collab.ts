@@ -188,7 +188,7 @@ async function onObservationRequest(x: Ctx, msg: AgentMessage) {
   if (!review.wants) return decline(x, x.ra, x.ia, "My human can't help with that.");
   await waitForHuman(
     x, "observation",
-    `Someone wants to know: ${p.question ?? p.place}. Would you like to answer?`,
+    `Someone wants to know: ${String(p.question ?? p.place).replace(/[.?!\s]+$/, "")}? Would you like to answer?`,
     ASKED_CONTEXT(x, `They asked about ${p.place}. Only a short summary you approve is shared, with the time you observed it.`),
   );
 }
