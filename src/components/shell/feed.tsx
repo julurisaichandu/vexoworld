@@ -2,12 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Send, Trash2, CornerDownRight, MessageCircle } from "lucide-react";
+import { Send, Trash2, CornerDownRight, MessageCircle, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { PlayCard, type PlayTone } from "@/components/play-card";
 import { ProvenanceBadge, SourceBadge } from "@/components/badges";
+import { VoiceConsole } from "@/components/voice/voice-console";
+import { PipecatVoice } from "@/components/voice/pipecat-voice";
+import { useVoiceAgent } from "@/components/voice/use-voice-agent";
 import { commentAction, createPostAction, deletePostAction } from "@/app/actions";
 import { timeAgo } from "./time";
 import type { AgentCard } from "@/lib/queries";
@@ -27,7 +30,12 @@ export function Composer({ agentName }: { agentName: string }) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const voice = useVoiceAgent();
   const short = shortName(agentName);
+  const setDialog = (o: boolean) => {
+    setOpen(o);
+    if (!o) voice.stop();
+  };
   const submit = () =>
     start(async () => {
       const t = text.trim();
@@ -38,7 +46,7 @@ export function Composer({ agentName }: { agentName: string }) {
         else if (r.outcome === "needs_approval") toast.info("Sent to your Inbox for approval");
         else toast(`Skipped: ${r.reason}`);
         setText("");
-        setOpen(false);
+        setDialog(false);
       } catch {
         toast.error("Could not reach your agent");
       }
@@ -51,8 +59,21 @@ export function Composer({ agentName }: { agentName: string }) {
       corner={<Send className="size-3" aria-hidden />}
       title={`Tell ${short} something worth sharing`}
       footer={<span className="block truncate">It rewrites it and asks you when unsure</span>}
+      actions={
+        <button
+          type="button"
+          aria-label={`Talk to ${short}`}
+          onClick={() => {
+            setOpen(true);
+            voice.start();
+          }}
+          className="flex size-8 items-center justify-center rounded-full bg-lime text-forest hover:bg-[#b5f5a3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50"
+        >
+          <Mic className="size-4" />
+        </button>
+      }
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={setDialog}
     >
       <Textarea
         value={text}
@@ -68,6 +89,10 @@ export function Composer({ agentName }: { agentName: string }) {
           <Send /> {pending ? "Thinking…" : "Share"}
         </Button>
       </div>
+      <div className="mt-3 border-t border-border pt-3">
+        <VoiceConsole v={voice} />
+      </div>
+      <PipecatVoice />
     </PlayCard>
   );
 }

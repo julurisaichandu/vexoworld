@@ -1,16 +1,12 @@
 import { Handshake } from "lucide-react";
-import { LiveRefresh } from "@/components/live-refresh";
-import { PageHeader } from "@/components/page-header";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { ConnectButton } from "@/components/work/connect-button";
 import { CopyButton } from "@/components/work/copy-button";
 import { PlayCard, PLAY_GRID } from "@/components/play-card";
 import { timeAgo } from "@/components/work/status";
 import { getConnections, getConversation, getDashboard, getViewer } from "@/lib/queries";
-import { requireUserId } from "@/lib/session";
 
-export default async function ConnectionsPage() {
-  const uid = await requireUserId();
+export async function ConnectionsTab({ uid }: { uid: string }) {
   const [conns, dash, viewer] = await Promise.all([getConnections(uid), getDashboard(uid), getViewer(uid)]);
   const mutual = conns.filter((c) => c.connection.status === "mutual");
   const pending = conns.filter((c) => c.connection.status === "pending");
@@ -31,9 +27,6 @@ export default async function ConnectionsPage() {
 
   return (
     <div className="space-y-5">
-      <LiveRefresh />
-      <PageHeader title="Connections" subtitle="People you and your agent met, only after both said yes." />
-
       <section className="space-y-3">
         <h2 className="ac-eyebrow">[ Connected <span className="text-muted-foreground">{mutual.length}</span> ]</h2>
         {mutual.length === 0 && empty("No mutual connections yet.")}

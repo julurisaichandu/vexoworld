@@ -10,11 +10,11 @@ import { markNotificationsReadAction } from "@/app/actions";
 import { timeAgo } from "./time";
 import type { Activity } from "@/lib/types";
 
-const HREF: Record<string, string> = { mission: "/missions", collaboration: "/conversations", post: "/", request: "/inbox", connection: "/connections" };
+const HREF: Record<string, string> = { mission: "/missions", collaboration: "/conversations", post: "/", request: "/inbox", connection: "/explore?tab=connections" };
 
 const hrefOf = (n: Activity) => {
   const base = n.refType ? HREF[n.refType] : undefined;
-  return base && n.refId && (n.refType === "mission" || n.refType === "collaboration") ? `${base}/${n.refId}` : (base ?? "/activity");
+  return base && n.refId && (n.refType === "mission" || n.refType === "collaboration") ? `${base}/${n.refId}` : (base ?? "/missions?tab=activity");
 };
 
 export function NotificationsBell({ items }: { items: Activity[] }) {

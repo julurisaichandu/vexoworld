@@ -1,11 +1,8 @@
 import { Bell, CheckCircle2, Compass, MessageSquare, Network, Users, type LucideIcon } from "lucide-react";
-import { LiveRefresh } from "@/components/live-refresh";
-import { PageHeader } from "@/components/page-header";
 import { ActivityControls } from "@/components/work/activity-controls";
 import { NetworkPulse } from "@/components/work/network-pulse";
 import { Empty, enter, timeAgo } from "@/components/work/status";
-import { getActivity, getConversations, getDashboard, getViewer } from "@/lib/queries";
-import { requireUserId } from "@/lib/session";
+import type { getActivity, getConversations, getDashboard, getViewer } from "@/lib/queries";
 
 const TILES: { key: "contacted" | "discoveries" | "conversations" | "pending" | "recommended" | "completed"; label: string; Icon: LucideIcon; tone: string }[] = [
   { key: "contacted", label: "Agents contacted", Icon: Network, tone: "bg-white/10 text-lime" },
@@ -18,18 +15,23 @@ const TILES: { key: "contacted" | "discoveries" | "conversations" | "pending" | 
 
 const dotFor = (type: string, notify: boolean) => (notify ? "bg-sand-foreground" : /error|fail|reject|declin/.test(type) ? "bg-destructive" : "bg-lime");
 
-export default async function ActivityPage() {
-  const uid = await requireUserId();
-  const [dash, activity, convos, viewer] = await Promise.all([getDashboard(uid), getActivity(uid, 50), getConversations(uid), getViewer(uid)]);
+export function ActivityTab({
+  dash,
+  activity,
+  convos,
+  viewer,
+}: {
+  dash: Awaited<ReturnType<typeof getDashboard>>;
+  activity: Awaited<ReturnType<typeof getActivity>>;
+  convos: Awaited<ReturnType<typeof getConversations>>;
+  viewer: Awaited<ReturnType<typeof getViewer>>;
+}) {
   const live = new Set(["requested", "awaiting_human", "negotiating", "awaiting_intro"]);
   const others = [...new Map(convos.map((c) => [c.other.id, c.other])).values()];
   const active = new Set(convos.filter((c) => live.has(c.collab.status)).map((c) => c.other.id));
 
   return (
     <div className="space-y-6">
-      <LiveRefresh />
-      <p className="ac-eyebrow">[ Activity ]</p>
-      <PageHeader title="Activity" subtitle="Watch your agent explore a living network." />
       <ActivityControls paused={viewer.agent?.paused ?? false} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">

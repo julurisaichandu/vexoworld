@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FREQUENCIES } from "@/components/shell/frequency";
 import {
+  addCorpusAction,
+  analyzePersonalityAction,
   resetDemoAction,
   revokeAllSharingAction,
   updateAgentAction,
@@ -178,6 +181,49 @@ export function PersonalityForm({ personality: p }: { personality: Personality |
           Save personality
         </Button>
       </form>
+    </Card>
+  );
+}
+
+export function LearningCard({ tokens, target }: { tokens: number; target: number }) {
+  const [text, setText] = useState("");
+  const [pending, start] = useTransition();
+  const pct = Math.min(100, Math.round((tokens / target) * 100));
+  return (
+    <Card eyebrow="Agent" title="Learning from your words">
+      <div className="mb-1.5 flex justify-between text-xs font-medium text-muted-foreground">
+        <span>Progress</span>
+        <span>
+          {tokens.toLocaleString()} / {target.toLocaleString()} tokens
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-cream-2">
+        <div className="h-full rounded-full bg-lime transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-4 space-y-3">
+        <Button
+          disabled={pending || tokens <= 0}
+          className="h-9 gap-1.5 rounded-full bg-lime px-3.5 text-forest hover:bg-[#b5f5a3]"
+          onClick={() =>
+            start(async () => {
+              const r = await analyzePersonalityAction();
+              if (r.ok) toast.success("Personality updated");
+              else toast(r.reason ?? "Not enough writing yet");
+            })
+          }
+        >
+          <Sparkles /> Analyze now
+        </Button>
+        <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Paste your own writing (private, never published)" />
+        <Button
+          variant="outline"
+          disabled={pending || !text.trim()}
+          className="h-9 rounded-full border border-ink/15 bg-card hover:bg-cream-2"
+          onClick={() => start(async () => { await addCorpusAction(text.trim()); setText(""); toast.success("Added privately"); })}
+        >
+          Add writing
+        </Button>
+      </div>
     </Card>
   );
 }

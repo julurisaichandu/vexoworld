@@ -51,7 +51,7 @@ export async function chatWithAgent(userId: string, text: string, inputSource: "
     case "activity_summary": {
       const acts = await store.list("activity", { userId }, { limit: 15 });
       const s = await ai.summarize("activity", acts.map((a) => a.text));
-      res = { ...res, reply: s.text, aiSource: s.aiSource, actions: [{ label: "Open activity", href: "/activity" }] };
+      res = { ...res, reply: s.text, aiSource: s.aiSource, actions: [{ label: "Open activity", href: "/missions?tab=activity" }] };
       break;
     }
     case "list_pending": {

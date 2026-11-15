@@ -50,7 +50,7 @@ export function FeedDeck({
                 </div>
               ))}
             </dl>
-            <Link href="/activity" className="mt-3 inline-block text-sm font-medium text-lime underline-offset-4 hover:underline">
+            <Link href="/missions?tab=activity" className="mt-3 inline-block text-sm font-medium text-lime underline-offset-4 hover:underline">
               See activity
             </Link>
             {recommended.length > 0 && (

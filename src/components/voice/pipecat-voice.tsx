@@ -19,13 +19,7 @@ export function PipecatVoice() {
 
   useEffect(() => () => void clientRef.current?.disconnect(), []);
 
-  if (!URL) {
-    return (
-      <div className="rounded-2xl border border-border bg-cream-2 p-3 text-sm text-muted-foreground">
-        Pipecat live voice is optional — run voice-agent/ and set NEXT_PUBLIC_PIPECAT_URL
-      </div>
-    );
-  }
+  if (!URL) return null;
 
   const push = (who: Line["who"], text: string) =>
     setLines((l) => (l.at(-1)?.who === who ? [...l.slice(0, -1), { who, text: `${l.at(-1)!.text} ${text}` }] : [...l, { who, text }]).slice(-20));

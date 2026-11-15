@@ -1,10 +1,7 @@
 import Link from "next/link";
-import { LiveRefresh } from "@/components/live-refresh";
-import { PageHeader } from "@/components/page-header";
 import { PLAY_GRID, PlayCard, type PlayTone } from "@/components/play-card";
 import { AvatarStack, CollabStatusPill, Empty, timeAgo } from "@/components/work/status";
-import { getConversations } from "@/lib/queries";
-import { requireUserId } from "@/lib/session";
+import type { getConversations } from "@/lib/queries";
 import type { CollabStatus } from "@/lib/types";
 
 const TONE: Record<CollabStatus, PlayTone> = {
@@ -19,13 +16,9 @@ const TONE: Record<CollabStatus, PlayTone> = {
   failed: "paper",
 };
 
-export default async function ConversationsPage() {
-  const uid = await requireUserId();
-  const convos = await getConversations(uid);
+export function ConversationsTab({ convos }: { convos: Awaited<ReturnType<typeof getConversations>> }) {
   return (
     <div className="space-y-5">
-      <LiveRefresh />
-      <PageHeader title="Agent conversations" subtitle="Structured messages between your agent and others." />
       {convos.length === 0 && <Empty>No agent conversations yet. Start a mission and your agent will reach out.</Empty>}
       <div className={PLAY_GRID}>
         {convos.map(({ collab, me, other, last }) => (

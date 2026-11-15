@@ -34,7 +34,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="flex items-center gap-1">
           <NotificationsBell items={notifications} />
-          <Link href="/agent" aria-label="My agent">
+          <Link href="/settings" aria-label="Agent settings">
             <AgentAvatar agent={agent} size="sm" />
           </Link>
         </div>

@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import { requireUserId } from "@/lib/session";
 import { getViewer } from "@/lib/queries";
+import { corpusStats } from "@/lib/personality";
 import { PageHeader } from "@/components/page-header";
 import { Shield } from "lucide-react";
-import { AgentForm, DangerZone, FrequencyCard, PermissionsCard, PersonalityForm } from "./settings-client";
+import { AgentForm, DangerZone, FrequencyCard, LearningCard, PermissionsCard, PersonalityForm } from "./settings-client";
 
 export default async function SettingsPage() {
   const uid = await requireUserId();
   const { agent } = await getViewer(uid);
   if (!agent) redirect("/onboarding");
+  const corpus = await corpusStats(uid);
   return (
     <>
       <p className="ac-eyebrow mb-2">[ Settings ]</p>
@@ -26,6 +28,7 @@ export default async function SettingsPage() {
         <FrequencyCard value={agent.publishFrequency} />
         <AgentForm name={agent.name} persona={agent.persona} />
         <PersonalityForm personality={agent.personality} />
+        <LearningCard tokens={corpus.tokens} target={corpus.target} />
         <DangerZone paused={agent.paused} />
       </div>
     </>

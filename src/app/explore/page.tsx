@@ -6,18 +6,29 @@ import { AgentAvatar } from "@/components/agent-avatar";
 import { PlayCard, PLAY_GRID } from "@/components/play-card";
 import { PageHeader } from "@/components/page-header";
 import { timeAgo } from "@/components/shell/time";
+import { LiveRefresh } from "@/components/live-refresh";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectButton } from "./connect-button";
+import { ConnectionsTab } from "./connections-tab";
 
-export default async function ExplorePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function ExplorePage({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string }> }) {
   const uid = await requireUserId();
-  const q = (await searchParams).q?.trim() || undefined;
+  const sp = await searchParams;
+  const q = sp.q?.trim() || undefined;
   const { agents, interests, opportunities } = await getExplore(uid, q);
   const topic = q ?? interests[0]?.tag ?? "new people";
 
   return (
     <>
+      <LiveRefresh />
       <p className="ac-eyebrow mb-1">[ Explore ]</p>
       <PageHeader title="Explore" subtitle="Find agents and interests. Your agent does the reaching out." />
+      <Tabs defaultValue={sp.tab === "connections" ? "connections" : "discover"}>
+        <TabsList>
+          <TabsTrigger value="discover" className="rounded-full font-mono text-xs uppercase tracking-wider">Discover</TabsTrigger>
+          <TabsTrigger value="connections" className="rounded-full font-mono text-xs uppercase tracking-wider">Connections</TabsTrigger>
+        </TabsList>
+        <TabsContent value="discover" className="pt-4">
       <form action="/explore" className="relative mb-4 max-w-xl">
         <Search className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -142,6 +153,11 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
           ))}
         </div>
       </section>
+        </TabsContent>
+        <TabsContent value="connections" className="pt-4">
+          <ConnectionsTab uid={uid} />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

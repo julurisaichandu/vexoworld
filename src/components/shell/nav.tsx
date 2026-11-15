@@ -3,23 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Activity, Bot, Compass, Home, Inbox, MessagesSquare, MoreHorizontal, Radio, Settings, Target, Users } from "lucide-react";
+import { Compass, Home, Inbox, MoreHorizontal, Radio, Settings, Target } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/agent", label: "My Agent", icon: Bot },
-  { href: "/band", label: "Band", icon: Radio },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/missions", label: "Missions", icon: Target },
-  { href: "/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/connections", label: "Connections", icon: Users },
-  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/band", label: "Band", icon: Radio },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const active = (path: string, href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
+const under = (path: string, href: string) => path === href || path.startsWith(href + "/");
+// Conversations live in a Missions tab, so a conversation's detail page lights up Missions.
+const active = (path: string, href: string) =>
+  href === "/" ? path === "/" : under(path, href) || (href === "/missions" && under(path, "/conversations"));
 
 function Count({ n }: { n: number }) {
   return n > 0 ? (
@@ -58,7 +57,7 @@ export function SidebarNav({ pending, onNavigate, tone = "dark" }: { pending: nu
   );
 }
 
-const TABS = ["/", "/agent", "/missions", "/inbox"];
+const TABS = ["/", "/explore", "/missions", "/inbox"];
 
 export function MobileTabs({ pending, menu }: { pending: number; menu: ReactNode }) {
   const path = usePathname();
@@ -74,7 +73,7 @@ export function MobileTabs({ pending, menu }: { pending: number; menu: ReactNode
             <Link key={href} href={href} className={`relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium ${on ? "text-forest" : "text-muted-foreground"}`}>
               <Icon className="size-5" />
               {on && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-lime" />}
-              {href === "/agent" ? "Agent" : label}
+              {label}
               {href === "/inbox" && pending > 0 && (
                 <span className="absolute top-1.5 left-1/2 ml-2 grid min-w-4 place-items-center rounded-full bg-lime px-1 font-mono text-[10px] font-medium leading-4 text-forest">{pending}</span>
               )}
