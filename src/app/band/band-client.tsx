@@ -156,11 +156,15 @@ export function BandPanel({ data, capture, topicLabels: BAND_TOPIC_LABELS, inter
         </div>
         {capture.running && capture.mine ? (
           <div className="mt-3 space-y-1 text-[13px] text-muted-foreground">
-            <p>Connects over Bluetooth. Double-tap the band if it is not steady blue (it blinks blue for a minute); capture keeps trying until it connects.</p>
+            <p>
+              {capture.via === "usb"
+                ? "Connects through the USB cable. Keep the band plugged in; capture keeps trying until it connects."
+                : "Connects over Bluetooth. Double-tap the band if it is not steady blue (it blinks blue for a minute); capture keeps trying until it connects."}
+            </p>
             {capture.lastLine && <p className="line-clamp-2 font-mono text-xs text-foreground/70">{capture.lastLine}</p>}
           </div>
         ) : (
-          !captureOn && <p className="mt-3 text-[13px] text-muted-foreground">Press Start capture, then double-tap the band so it blinks blue.</p>
+          !captureOn && <p className="mt-3 text-[13px] text-muted-foreground">Press Start capture. It uses the USB cable when the band is plugged in, Bluetooth otherwise (double-tap the band so it blinks blue).</p>
         )}
       </Card>
 

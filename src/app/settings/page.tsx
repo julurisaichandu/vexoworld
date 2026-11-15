@@ -22,7 +22,7 @@ export default async function SettingsPage() {
           <div className="min-w-0 flex-1 space-y-1 text-sm leading-relaxed">
             <p className="ac-eyebrow">[ Band ]</p>
             <p className="font-medium text-foreground">Vexo band</p>
-            <p className="text-foreground/75">Start capture over Bluetooth, choose how often it posts, and pick the topics your agent may share.</p>
+            <p className="text-foreground/75">Start capture (USB cable or Bluetooth), choose how often it posts, and pick the topics your agent may share.</p>
           </div>
           <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
         </Link>
