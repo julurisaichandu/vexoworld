@@ -36,7 +36,8 @@ export function verifyToken<T extends Record<string, unknown>>(token?: string | 
 
 export async function currentUserId(): Promise<string | null> {
   const jar = await cookies();
-  return verifyToken<{ uid: string }>(jar.get(COOKIE)?.value)?.uid ?? null;
+  const t = verifyToken<{ uid: string; scope?: string }>(jar.get(COOKIE)?.value);
+  return t?.scope === "session" ? t.uid : null;
 }
 
 /** For pages and server actions: redirects to /login when signed out. */
@@ -49,15 +50,16 @@ export async function requireUserId(): Promise<string> {
 /** For route handlers: cookie session, or `Authorization: Bearer <token>` with scope "voice" (Pipecat bot). */
 export async function userIdFromRequest(req: Request): Promise<string | null> {
   const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return verifyToken<{ uid: string; scope: string }>(auth.slice(7))?.scope === "voice"
-    ? verifyToken<{ uid: string }>(auth.slice(7))!.uid
-    : null;
+  if (auth?.startsWith("Bearer ")) {
+    const t = verifyToken<{ uid: string; scope?: string }>(auth.slice(7));
+    return t?.scope === "voice" ? t.uid : null;
+  }
   return currentUserId();
 }
 
 export async function setSession(uid: string) {
   const jar = await cookies();
-  jar.set(COOKIE, signToken({ uid }, WEEK), {
+  jar.set(COOKIE, signToken({ uid, scope: "session" }, WEEK), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
