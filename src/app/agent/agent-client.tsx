@@ -13,7 +13,7 @@ export function PauseToggle({ paused }: { paused: boolean }) {
     <Button
       variant="outline"
       disabled={pending}
-      className="h-10 gap-2 px-4"
+      className="h-10 gap-2 rounded-full border-white/15 bg-white/10 px-4 text-cream hover:bg-white/15 hover:text-cream"
       onClick={() => start(async () => { await updateAgentAction({ paused: !paused }); toast(paused ? "Agent resumed" : "Agent paused"); })}
     >
       {paused ? <Play /> : <Pause />} {paused ? "Resume" : "Pause"}
@@ -28,7 +28,7 @@ export function CorpusTools({ canAnalyze }: { canAnalyze: boolean }) {
     <div className="space-y-3">
       <Button
         disabled={pending || !canAnalyze}
-        className="h-9 gap-1.5 bg-indigo-600 px-3.5 text-white hover:bg-indigo-700"
+        className="h-9 gap-1.5 rounded-full bg-lime px-3.5 text-forest hover:bg-[#b5f5a3]"
         onClick={() =>
           start(async () => {
             const r = await analyzePersonalityAction();
@@ -43,7 +43,7 @@ export function CorpusTools({ canAnalyze }: { canAnalyze: boolean }) {
       <Button
         variant="outline"
         disabled={pending || !text.trim()}
-        className="h-9"
+        className="h-9 rounded-full border border-ink/15 bg-card hover:bg-cream-2"
         onClick={() => start(async () => { await addCorpusAction(text.trim()); setText(""); toast.success("Added privately"); })}
       >
         Add writing

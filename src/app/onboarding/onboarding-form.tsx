@@ -13,7 +13,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
-      {hint && <p className="text-[13px] text-slate-500">{hint}</p>}
+      {hint && <p className="text-[13px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -24,7 +24,7 @@ export function OnboardingForm({ defaults }: { defaults: { agentName: string; ci
   const [pending, start] = useTransition();
   return (
     <form
-      className="mt-8 space-y-6"
+      className="space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -67,12 +67,12 @@ export function OnboardingForm({ defaults }: { defaults: { agentName: string; ci
               type="button"
               onClick={() => setFreq(f.value)}
               aria-pressed={freq === f.value}
-              className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${freq === f.value ? "border-indigo-400 bg-indigo-50" : "border-border hover:bg-slate-50"}`}
+              className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${freq === f.value ? "border-forest/40 bg-lime-soft" : "border-border hover:bg-cream-2"}`}
             >
-              <span className={`mt-1 size-4 shrink-0 rounded-full border-2 ${freq === f.value ? "border-indigo-600 bg-indigo-600 ring-2 ring-white ring-inset" : "border-slate-300"}`} />
+              <span className={`mt-1 size-4 shrink-0 rounded-full border-2 ${freq === f.value ? "border-forest bg-forest ring-2 ring-lime ring-inset" : "border-ink/25"}`} />
               <span>
-                <span className="block text-sm font-semibold text-slate-900">{f.label}</span>
-                <span className="block text-[13px] text-slate-600">{f.hint}</span>
+                <span className="block text-sm font-medium text-foreground">{f.label}</span>
+                <span className="block text-[13px] text-muted-foreground">{f.hint}</span>
               </span>
             </button>
           ))}
@@ -88,8 +88,8 @@ export function OnboardingForm({ defaults }: { defaults: { agentName: string; ci
         </Field>
       </div>
 
-      {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
-      <Button type="submit" disabled={pending} className="h-11 w-full bg-indigo-600 text-base text-white hover:bg-indigo-700 sm:w-auto sm:px-8">
+      {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+      <Button type="submit" disabled={pending} className="h-11 w-full bg-lime text-base text-forest hover:bg-[#b5f5a3] sm:w-auto sm:px-8">
         {pending ? "Creating…" : "Create my agent"}
       </Button>
     </form>

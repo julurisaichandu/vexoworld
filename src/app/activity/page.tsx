@@ -1,23 +1,22 @@
-import { Activity as ActivityIcon, Bell, CheckCircle2, Compass, MessageSquare, Network, Sparkles, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { Bell, CheckCircle2, Compass, MessageSquare, Network, Users, type LucideIcon } from "lucide-react";
 import { LiveRefresh } from "@/components/live-refresh";
 import { PageHeader } from "@/components/page-header";
 import { ActivityControls } from "@/components/work/activity-controls";
 import { NetworkPulse } from "@/components/work/network-pulse";
-import { Empty, card, enter, timeAgo } from "@/components/work/status";
+import { Empty, enter, timeAgo } from "@/components/work/status";
 import { getActivity, getConversations, getDashboard, getViewer } from "@/lib/queries";
 import { requireUserId } from "@/lib/session";
 
 const TILES: { key: "contacted" | "discoveries" | "conversations" | "pending" | "recommended" | "completed"; label: string; Icon: LucideIcon; tone: string }[] = [
-  { key: "contacted", label: "Agents contacted", Icon: Network, tone: "bg-indigo-50 text-indigo-600" },
-  { key: "discoveries", label: "Discoveries", Icon: Compass, tone: "bg-sky-50 text-sky-600" },
-  { key: "conversations", label: "Agent conversations", Icon: MessageSquare, tone: "bg-emerald-50 text-emerald-600" },
-  { key: "pending", label: "Pending questions", Icon: Bell, tone: "bg-amber-50 text-amber-600" },
-  { key: "recommended", label: "Recommended people", Icon: Users, tone: "bg-rose-50 text-rose-500" },
-  { key: "completed", label: "Completed missions", Icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-600" },
+  { key: "contacted", label: "Agents contacted", Icon: Network, tone: "bg-white/10 text-lime" },
+  { key: "discoveries", label: "Discoveries", Icon: Compass, tone: "bg-cream-2 text-ink" },
+  { key: "conversations", label: "Agent conversations", Icon: MessageSquare, tone: "bg-lime/30 text-forest" },
+  { key: "pending", label: "Pending questions", Icon: Bell, tone: "bg-sand text-sand-foreground" },
+  { key: "recommended", label: "Recommended people", Icon: Users, tone: "bg-lime/30 text-forest" },
+  { key: "completed", label: "Completed missions", Icon: CheckCircle2, tone: "bg-lime/30 text-forest" },
 ];
 
-const iconFor = (type: string): LucideIcon =>
-  type.startsWith("mission") ? Sparkles : type.startsWith("agent") ? Network : type.startsWith("human") ? Bell : type.startsWith("connection") ? UserPlus : type.startsWith("collab") ? MessageSquare : ActivityIcon;
+const dotFor = (type: string, notify: boolean) => (notify ? "bg-sand-foreground" : /error|fail|reject|declin/.test(type) ? "bg-destructive" : "bg-lime");
 
 export default async function ActivityPage() {
   const uid = await requireUserId();
@@ -29,24 +28,28 @@ export default async function ActivityPage() {
   return (
     <div className="space-y-6">
       <LiveRefresh />
+      <p className="ac-eyebrow">[ Activity ]</p>
       <PageHeader title="Activity" subtitle="Watch your agent explore a living network." />
       <ActivityControls paused={viewer.agent?.paused ?? false} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        {TILES.map(({ key, label, Icon, tone }) => (
-          <div key={key} className={`${card} ${enter} p-4`}>
-            <span className={`mb-2 flex size-9 items-center justify-center rounded-xl ${tone}`}>
-              <Icon className="size-5" />
-            </span>
-            <p className="font-heading text-3xl text-slate-900">{dash.stats[key]}</p>
-            <p className="text-xs text-slate-500">{label}</p>
-          </div>
-        ))}
+        {TILES.map(({ key, label, Icon, tone }, i) => {
+          const dark = i === 0;
+          return (
+            <div key={key} className={`${dark ? "ac-panel-dark" : "ac-card"} ${enter} p-4`}>
+              <span className={`mb-3 flex size-9 items-center justify-center rounded-full ${tone}`}>
+                <Icon className="size-4" />
+              </span>
+              <p className={`font-heading text-3xl tracking-[-0.025em] ${dark ? "text-lime" : "text-foreground"}`}>{dash.stats[key]}</p>
+              <p className={`ac-eyebrow mt-1 ${dark ? "text-cream/70" : "text-muted-foreground"}`}>{label}</p>
+            </div>
+          );
+        })}
       </div>
 
       {viewer.agent && (
-        <section className={`${card} space-y-2 bg-indigo-50/40 p-5`}>
-          <h2 className="font-heading text-lg">Network pulse</h2>
+        <section className="ac-card space-y-2 p-5">
+          <h2 className="font-heading text-2xl tracking-[-0.025em]">Network pulse</h2>
           <NetworkPulse
             me={{ ...viewer.agent, ownerLabel: "You", interests: [] }}
             others={others}
@@ -56,25 +59,20 @@ export default async function ActivityPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="font-heading text-lg">Timeline</h2>
+        <p className="ac-eyebrow">[ Timeline ]</p>
+        <h2 className="font-heading text-2xl tracking-[-0.025em]">Timeline</h2>
         {activity.length === 0 && <Empty>Nothing yet. Start a mission.</Empty>}
-        <ol className="space-y-2">
-          {activity.map((a) => {
-            const Icon = iconFor(a.type);
-            return (
-              <li key={a.id} className={`${card} flex items-start gap-3 p-3 ${a.notify ? "border-amber-300 bg-amber-50" : ""}`}>
-                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${a.notify ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                  <Icon className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-slate-900">{a.text}</p>
-                  <p className="font-mono text-[11px] text-slate-400">
-                    {a.type} · {timeAgo(a.createdAt)}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+        <ol className="relative ml-24 space-y-5 border-l border-border pl-6">
+          {activity.map((a) => (
+            <li key={a.id} className="relative">
+              <span className={`absolute -left-[29px] top-1.5 size-2.5 rounded-full ring-4 ring-background ${dotFor(a.type, !!a.notify)}`} />
+              <time className="absolute -left-[7.5rem] top-0.5 w-20 text-right font-mono text-[11px] text-muted-foreground" dateTime={a.createdAt}>
+                {timeAgo(a.createdAt)}
+              </time>
+              <p className={`text-sm ${a.notify ? "rounded-xl bg-sand px-3 py-2 text-sand-foreground" : "text-foreground"}`}>{a.text}</p>
+              <p className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">{a.type}</p>
+            </li>
+          ))}
         </ol>
       </section>
     </div>

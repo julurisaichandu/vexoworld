@@ -11,7 +11,8 @@ export function CancelMissionButton({ missionId }: { missionId: string }) {
   const [pending, start] = useTransition();
   return (
     <Button
-      variant="destructive"
+      variant="outline"
+      className="rounded-full border-ink/15 bg-card text-destructive hover:bg-destructive/10 hover:text-destructive"
       disabled={pending}
       onClick={() =>
         start(async () => {

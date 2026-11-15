@@ -23,13 +23,13 @@ export function ActivityControls({ paused }: { paused: boolean }) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" disabled={pending} onClick={() => run(() => updateAgentAction({ paused: !paused }), paused ? "Agent resumed" : "Agent paused")}>
+      <Button variant="outline" className="rounded-full border-ink/15 bg-card hover:bg-cream-2" disabled={pending} onClick={() => run(() => updateAgentAction({ paused: !paused }), paused ? "Agent resumed" : "Agent paused")}>
         {paused ? <Play /> : <Pause />} {paused ? "Resume agent" : "Pause agent"}
       </Button>
-      <Button variant="destructive" onClick={() => setConfirm(true)}>
+      <Button variant="outline" className="rounded-full border-ink/15 bg-card text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setConfirm(true)}>
         <ShieldOff /> Revoke sharing
       </Button>
-      <Link href="/settings" className={buttonVariants({ variant: "ghost" })}>
+      <Link href="/settings" className={`${buttonVariants({ variant: "ghost" })} rounded-full`}>
         <Settings /> Settings
       </Link>
       <Dialog open={confirm} onOpenChange={setConfirm}>

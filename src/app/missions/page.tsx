@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { LiveRefresh } from "@/components/live-refresh";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { AvatarStack, Empty, KindChip, MissionStatusPill, card, enter, timeAgo } from "@/components/work/status";
+import { AvatarStack, Empty, KindChip, MissionStatusPill, enter, timeAgo } from "@/components/work/status";
 import { getConversations, getInbox, getMissions } from "@/lib/queries";
 import { requireUserId } from "@/lib/session";
 
@@ -15,11 +15,12 @@ export default async function MissionsPage() {
   return (
     <div className="space-y-6">
       <LiveRefresh />
+      <p className="ac-eyebrow -mb-3">[ Missions ]</p>
       <PageHeader
         title="Missions"
         subtitle="Goals your agent is working on for you."
         action={
-          <Link href="/missions/new" className={buttonVariants({ className: "bg-indigo-600 text-white hover:bg-indigo-700" })}>
+          <Link href="/missions/new" className={buttonVariants({ className: "rounded-full bg-lime text-forest hover:bg-[#b5f5a3]" })}>
             <Plus /> New mission
           </Link>
         }
@@ -34,18 +35,18 @@ export default async function MissionsPage() {
             <Link
               key={m.id}
               href={`/missions/${m.id}`}
-              className={`${card} ${enter} block space-y-3 p-5 transition hover:shadow-md ${awaiting ? "ring-2 ring-amber-300" : ""}`}
+              className={`${enter} ac-card block space-y-3 rounded-2xl p-5 transition hover:shadow-md ${awaiting ? "ring-2 ring-lime/60" : ""}`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <KindChip kind={m.kind} />
                 <MissionStatusPill status={m.status} />
-                {awaiting && <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-medium text-white">Awaiting you</span>}
+                {awaiting && <span className="rounded-full bg-sand px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-sand-foreground">Awaiting you</span>}
               </div>
-              <h2 className="font-heading text-lg leading-snug text-slate-900">{m.title}</h2>
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-indigo-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+              <h2 className="font-heading text-xl leading-[1.15] tracking-[-0.025em] text-foreground">{m.title}</h2>
+              <div className="h-1.5 overflow-hidden rounded-full bg-cream-2">
+                <div className="h-full rounded-full bg-lime transition-all duration-700" style={{ width: `${pct}%` }} />
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
                 <AvatarStack agents={others(m.id)} size="xs" />
                 <span>
                   {done}/{m.steps.length} steps · {timeAgo(m.updatedAt)}

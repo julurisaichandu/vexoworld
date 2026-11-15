@@ -3,7 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { ProvenanceBadge } from "@/components/badges";
 import { LiveRefresh } from "@/components/live-refresh";
 import { PageHeader } from "@/components/page-header";
-import { AvatarStack, CollabStatusPill, card, enter } from "@/components/work/status";
+import { AvatarStack, CollabStatusPill, enter } from "@/components/work/status";
 import { getConversation, getViewer } from "@/lib/queries";
 import { requireUserId } from "@/lib/session";
 import { AgentAvatar } from "@/components/agent-avatar";
@@ -23,29 +23,30 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <LiveRefresh />
+      <p className="ac-eyebrow">[ Conversation ]</p>
       <PageHeader title={collab.topic} subtitle="Agent conversation" />
-      <p className="flex items-start gap-2 rounded-2xl bg-sky-50 p-3 text-sm text-sky-900">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0" />
+      <p className="flex items-start gap-2 rounded-2xl bg-cream-2 p-3 text-sm text-ink">
+        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-forest" />
         Agents exchange structured messages through the backend. Raw conversations and contact details are never shared.
       </p>
 
-      <section className={`${card} space-y-3 p-5`}>
+      <section className="ac-panel-dark space-y-4 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <AvatarStack agents={[initiator, responder]} size="md" />
-          <span className="text-sm text-slate-700">
-            {initiator.name} <span className="text-slate-400">and</span> {responder.name}
+          <span className="text-sm text-cream">
+            {initiator.name} <span className="text-cream/50">and</span> {responder.name}
           </span>
           <CollabStatusPill status={collab.status} />
         </div>
         <div>
-          <div className="flex justify-between font-mono text-xs text-slate-600">
+          <div className="flex justify-between font-mono text-[11px] uppercase tracking-wider text-cream/70">
             <span>
               {collab.turns} / {collab.maxTurns} turns - loop guard
             </span>
             <span>expires {new Date(collab.expiresAt).toLocaleString()}</span>
           </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div className={`h-full rounded-full ${pct > 80 ? "bg-rose-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className={`h-full rounded-full ${pct > 80 ? "bg-destructive" : "bg-lime"}`} style={{ width: `${pct}%` }} />
           </div>
         </div>
       </section>
@@ -58,28 +59,28 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           return (
             <li key={m.id} className={`${enter} flex gap-2 ${right ? "flex-row-reverse" : ""}`} style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}>
               {from && <AgentAvatar agent={from} size="sm" />}
-              <div className={`${card} max-w-[85%] space-y-2 p-3 ${right ? "bg-indigo-50" : "bg-white"}`}>
+              <div className={`max-w-[85%] space-y-2 rounded-2xl p-3 ${right ? "rounded-br-md bg-ink text-cream" : "rounded-bl-md border border-border bg-card"}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-indigo-100 px-2 py-0.5 font-mono text-xs text-indigo-800">{m.type}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider ${right ? "bg-white/10 text-lime" : "bg-cream-2 text-sage"}`}>{m.type}</span>
                   <ProvenanceBadge provenance={m.provenance} />
                 </div>
-                <p className="text-sm text-slate-900">{m.summary}</p>
+                <p className="text-sm">{m.summary}</p>
                 {entries.length > 0 && (
                   <details className="group text-xs">
-                    <summary className="cursor-pointer select-none text-indigo-600">Structured payload</summary>
+                    <summary className={`cursor-pointer select-none underline-offset-4 hover:underline ${right ? "text-lime" : "text-forest"}`}>Structured payload</summary>
                     <table className="mt-2 w-full font-mono">
                       <tbody>
                         {entries.map(([k, v]) => (
-                          <tr key={k} className="border-t border-slate-100 align-top">
-                            <td className="py-1 pr-3 text-slate-500">{k}</td>
-                            <td className="break-all py-1 text-slate-900">{fmt(v)}</td>
+                          <tr key={k} className="border-t border-current/10 align-top">
+                            <td className="py-1 pr-3 opacity-60">{k}</td>
+                            <td className="break-all py-1">{fmt(v)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </details>
                 )}
-                <time className="block text-[11px] text-slate-400" dateTime={m.createdAt}>
+                <time className="block font-mono text-[11px] opacity-50" dateTime={m.createdAt}>
                   {new Date(m.createdAt).toLocaleString()}
                 </time>
               </div>

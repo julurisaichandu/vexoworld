@@ -1,14 +1,20 @@
-export function Logo() {
+/** `tone="light"` for dark backgrounds (landing hero). */
+export function Logo({ tone = "dark" }: { tone?: "dark" | "light" }) {
+  const ink = tone === "light" ? "#fcfaee" : "#0e1711";
   return (
-    <span className="flex items-center gap-2.5">
-      <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden>
-        <circle cx="16" cy="16" r="9" fill="#4f46e5" />
-        <ellipse cx="16" cy="16" rx="14" ry="5.5" fill="none" stroke="#f43f5e" strokeWidth="2.2" transform="rotate(-25 16 16)" />
-        <circle cx="27.2" cy="9.4" r="2.4" fill="#10b981" />
-        <circle cx="13" cy="14" r="1.4" fill="#fff" />
-        <circle cx="19" cy="14" r="1.4" fill="#fff" />
+    <span className="flex items-center gap-2">
+      <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden>
+        <path d="M14 3 25 14 14 25 3 14Z" fill="none" stroke={ink} strokeOpacity=".3" strokeWidth="1.2" />
+        <path d="M14 3v22M3 14h22" stroke={ink} strokeWidth="1.6" />
+        <circle cx="14" cy="3" r="2.3" fill={ink} />
+        <circle cx="25" cy="14" r="2.3" fill={ink} />
+        <circle cx="14" cy="25" r="2.3" fill={ink} />
+        <circle cx="3" cy="14" r="2.3" fill={ink} />
+        <circle cx="14" cy="14" r="4" fill="#a2f08c" stroke={ink} strokeWidth="1.6" />
       </svg>
-      <span className="font-heading text-xl font-semibold tracking-tight text-slate-900">Agent Connect</span>
+      <span className={`font-sans text-[21px] font-medium tracking-[-0.045em] ${tone === "light" ? "text-cream" : "text-ink"}`}>
+        vexoworld
+      </span>
     </span>
   );
 }

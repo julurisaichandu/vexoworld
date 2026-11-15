@@ -23,8 +23,8 @@ export function NetworkPulse({ me, others, active }: { me: AgentCard; others: Ag
         @media (prefers-reduced-motion: reduce) { .ac-flow, .ac-ring, .ac-orbit { animation: none; } }
       `}</style>
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 size-full">
-        <circle cx={C} cy={C} r={R} fill="none" stroke="#e0e7ff" strokeDasharray="2 6" />
-        <circle cx={C} cy={C} r={46} fill="#6366f1" opacity=".15" className="ac-ring" style={{ transformOrigin: `${C}px ${C}px` }} />
+        <circle cx={C} cy={C} r={R} fill="none" stroke="#D8D4BD" strokeDasharray="2 6" />
+        <circle cx={C} cy={C} r={46} fill="#A2F08C" opacity=".25" className="ac-ring" style={{ transformOrigin: `${C}px ${C}px` }} />
         {nodes.map(({ a, x, y }) => (
           <line
             key={a.id}
@@ -32,7 +32,7 @@ export function NetworkPulse({ me, others, active }: { me: AgentCard; others: Ag
             y1={C}
             x2={x}
             y2={y}
-            stroke={active.has(a.id) ? "#6366f1" : "#cbd5e1"}
+            stroke={active.has(a.id) ? "#A2F08C" : "rgba(140,146,128,.45)"}
             strokeWidth={active.has(a.id) ? 2 : 1}
             className={active.has(a.id) ? "ac-flow" : undefined}
           />
@@ -48,7 +48,7 @@ export function NetworkPulse({ me, others, active }: { me: AgentCard; others: Ag
           <AgentAvatar agent={a} size="md" />
         </div>
       ))}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-indigo-200">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-lime">
         <AgentAvatar agent={me} size="lg" />
       </div>
     </div>

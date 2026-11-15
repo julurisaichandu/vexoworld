@@ -13,7 +13,7 @@ export function ConnectButton({ tag, className }: { tag: string; className?: str
   return (
     <Button
       disabled={pending}
-      className={`h-9 gap-1.5 bg-indigo-600 px-3.5 text-white hover:bg-indigo-700 ${className ?? ""}`}
+      className={`h-9 gap-1.5 rounded-full bg-ink px-3.5 text-cream hover:bg-forest ${className ?? ""}`}
       onClick={() =>
         start(async () => {
           try {

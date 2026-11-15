@@ -120,17 +120,17 @@ export function VoiceAnswer({ onTranscript, disabled }: { onTranscript: (text: s
       {phase !== "typed" && (
         <div className="flex items-center gap-3">
           {phase === "recording" ? (
-            <Button type="button" size="sm" onClick={end} className="bg-[#ff6b57] text-white hover:bg-[#ff6b57]/90">
+            <Button type="button" size="sm" onClick={end} className="rounded-full bg-ink text-cream hover:bg-forest">
               <Square className="fill-current" /> Stop
             </Button>
           ) : (
-            <Button type="button" size="sm" variant="outline" onClick={begin} disabled={disabled || phase === "working"}>
+            <Button type="button" size="sm" variant="outline" onClick={begin} className="rounded-full border-ink/15 bg-card hover:bg-cream-2" disabled={disabled || phase === "working"}>
               <Mic /> {phase === "working" ? "Transcribing..." : "Answer by voice"}
             </Button>
           )}
           {phase === "recording" && (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-[#ff6b57]" role="status">
-              <span className="size-2 animate-pulse rounded-full bg-[#ff6b57]" /> Recording {mm}
+            <span className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-wider text-forest" role="status">
+              <span className="size-2 animate-pulse rounded-full bg-lime" /> Recording {mm}
             </span>
           )}
           {phase === "idle" && label && <span className="text-xs text-muted-foreground">{label === "simulated" ? "simulated voice" : `transcribed by ${label}`}</span>}
@@ -147,8 +147,8 @@ export function VoiceAnswer({ onTranscript, disabled }: { onTranscript: (text: s
             setPhase("idle");
           }}
         >
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what you would say" disabled={disabled} />
-          <Button type="submit" size="sm" disabled={disabled || !text.trim()}>
+          <Input className="rounded-full bg-cream-2" value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what you would say" disabled={disabled} />
+          <Button type="submit" size="sm" className="rounded-full bg-lime text-forest hover:bg-[#b5f5a3]" disabled={disabled || !text.trim()}>
             Use as simulated voice answer
           </Button>
         </form>

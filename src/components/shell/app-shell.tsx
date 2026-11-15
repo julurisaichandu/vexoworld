@@ -14,21 +14,21 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   if (!viewer?.agent) return children;
   const [users, notifications] = await Promise.all([getDemoUsers(), getNotifications(uid)]);
   const { user, agent, pending } = viewer;
-  const menu = <UserMenu user={{ id: user.id, name: user.name }} agent={agent} users={users} />;
+  const menuProps = { user: { id: user.id, name: user.name }, agent, users };
 
   return (
     <div className="min-h-dvh md:pl-64">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-[#fafbff] md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-ink text-cream md:flex">
         <Link href="/" className="px-6 pt-7 pb-6">
-          <Logo />
+          <Logo tone="light" />
         </Link>
         <div className="flex-1 overflow-y-auto px-3">
           <SidebarNav pending={pending} />
         </div>
-        <div className="border-t border-border p-3">{menu}</div>
+        <div className="border-t border-white/10 p-3"><UserMenu {...menuProps} tone="dark" /></div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-white/90 px-4 py-2.5 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/85 px-4 py-2.5 backdrop-blur md:hidden">
         <Link href="/">
           <Logo />
         </Link>
@@ -45,7 +45,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">{children}</main>
-      <MobileTabs pending={pending} menu={menu} />
+      <MobileTabs pending={pending} menu={<UserMenu {...menuProps} tone="light" />} />
     </div>
   );
 }

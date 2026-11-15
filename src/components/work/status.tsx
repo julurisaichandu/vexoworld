@@ -3,12 +3,12 @@ import type { CollabStatus, MissionKind, MissionStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TONES = {
-  indigo: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  amber: "bg-amber-50 text-amber-700 ring-amber-200",
-  rose: "bg-rose-50 text-rose-700 ring-rose-200",
-  sky: "bg-sky-50 text-sky-700 ring-sky-200",
-  slate: "bg-slate-100 text-slate-600 ring-slate-200",
+  indigo: "bg-lime/35 text-forest",
+  emerald: "bg-lime/35 text-forest",
+  amber: "bg-sand text-sand-foreground",
+  rose: "bg-destructive/10 text-destructive",
+  sky: "bg-ink text-lime",
+  slate: "bg-cream-2 text-sage",
 };
 export type Tone = keyof typeof TONES;
 
@@ -35,7 +35,7 @@ const COLLAB: Record<CollabStatus, [string, Tone]> = {
 
 export function Pill({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset", TONES[tone], className)}>
+    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider", TONES[tone], className)}>
       {children}
     </span>
   );
@@ -52,7 +52,7 @@ export function AvatarStack({ agents, size = "sm" }: { agents: Av[]; size?: "xs"
   return (
     <div className="flex -space-x-2">
       {agents.map((a) => (
-        <span key={a.id} className="rounded-full ring-2 ring-white">
+        <span key={a.id} className="rounded-full ring-2 ring-card">
           <AgentAvatar agent={a} size={size} />
         </span>
       ))}
@@ -68,9 +68,9 @@ export function timeAgo(iso: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export const card = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+export const card = "ac-card";
 export const enter = "animate-in fade-in slide-in-from-bottom-2 duration-500";
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">{children}</div>;
+  return <div className="rounded-2xl border border-dashed border-border bg-cream-2 p-8 text-center text-sm text-muted-foreground">{children}</div>;
 }

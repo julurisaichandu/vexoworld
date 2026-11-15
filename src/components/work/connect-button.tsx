@@ -13,7 +13,7 @@ export function ConnectButton({ goal }: { goal: string }) {
     <Button
       size="sm"
       disabled={pending}
-      className="bg-indigo-600 text-white hover:bg-indigo-700"
+      className="rounded-full bg-ink text-cream hover:bg-forest"
       onClick={() =>
         start(async () => {
           try {

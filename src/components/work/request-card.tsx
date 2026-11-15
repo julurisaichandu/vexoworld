@@ -11,16 +11,23 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceAnswer } from "@/components/voice/voice-answer";
 import type { HumanRequest } from "@/lib/types";
-import { Pill, card, enter } from "./status";
+import { enter } from "./status";
 
 type Answer = NonNullable<HumanRequest["answerSource"]>;
 const SOURCE_LABEL: Record<Answer, string> = { voice: "Voice via Deepgram", text: "Typed", simulated_voice: "Simulated voice" };
 const KIND_LABEL: Record<HumanRequest["kind"], string> = {
-  question: "Question",
+  question: "Question from your agent",
   observation: "Observation",
-  approval_intro: "Introduction",
-  approval_post: "Post",
+  approval_intro: "Intro approval",
+  approval_post: "Share approval",
 };
+const CHIP = "rounded-full px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-wider";
+const CHIP_TONE = { sand: "bg-sand text-sand-foreground", live: "bg-lime/35 text-forest", neutral: "bg-cream-2 text-sage" };
+const Chip = ({ tone, children }: { tone: keyof typeof CHIP_TONE; children: React.ReactNode }) => (
+  <span className={`${CHIP} ${CHIP_TONE[tone]}`}>{children}</span>
+);
+const LIME_BTN = "rounded-full bg-lime text-forest hover:bg-[#b5f5a3]";
+const OUTLINE_BTN = "rounded-full border-ink/15 bg-card hover:bg-cream-2";
 
 export function RequestCard({ request: r }: { request: HumanRequest }) {
   const router = useRouter();
@@ -48,28 +55,28 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
   const structured = r.answerStructured;
 
   return (
-    <div className={`${card} ${enter} space-y-4 p-5 ${r.status === "pending" || r.status === "review" ? "border-l-4 border-l-amber-400" : ""}`}>
+    <div className={`ac-card ${enter} space-y-4 p-6 ${r.status === "pending" || r.status === "review" ? "border-l-4 border-l-lime" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <Pill tone={r.kind === "approval_intro" ? "rose" : r.kind === "approval_post" ? "sky" : "indigo"}>{KIND_LABEL[r.kind]}</Pill>
-        {r.sensitive && <Pill tone="amber">Sensitive</Pill>}
-        {done && <Pill tone={r.status === "approved" ? "emerald" : "slate"}>{r.status}</Pill>}
-        {r.status === "review" && <Pill tone="amber">Review before sharing</Pill>}
+        <span className="ac-eyebrow">[ {KIND_LABEL[r.kind]} ]</span>
+        {r.sensitive && <Chip tone="sand">Sensitive</Chip>}
+        {done && <Chip tone={r.status === "approved" ? "live" : "neutral"}>{r.status}</Chip>}
+        {r.status === "review" && <Chip tone="sand">Review before sharing</Chip>}
       </div>
 
       <div>
-        <p className="font-heading text-lg leading-snug text-slate-900">{r.prompt}</p>
-        <p className="mt-1 text-sm text-slate-500">{r.context}</p>
+        <p className="font-heading text-xl leading-snug tracking-[-0.025em] text-foreground">{r.prompt}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{r.context}</p>
       </div>
 
       {r.kind === "approval_intro" && (
-        <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">They will see your first name and contact. Nothing is shared until both of you approve.</p>
+        <p className="rounded-xl bg-sand p-3 text-sm text-sand-foreground">They will see your first name and contact. Nothing is shared until both of you approve.</p>
       )}
       {r.kind === "approval_post" && r.postDraft && (
-        <blockquote className="rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm text-slate-800">{r.postDraft}</blockquote>
+        <blockquote className="rounded-xl bg-cream-2 p-3 font-mono text-[13px] text-foreground">{r.postDraft}</blockquote>
       )}
 
       {r.answerSource && (
-        <p className="text-xs text-slate-500">
+        <p className="font-mono text-xs text-muted-foreground">
           Answered: {SOURCE_LABEL[r.answerSource]}
           {r.observedAt && ` · observed ${new Date(r.observedAt).toLocaleString()}`}
         </p>
@@ -78,29 +85,29 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
       {askable && r.status === "pending" && (
         <div className="space-y-3">
           <VoiceAnswer onTranscript={(t, s) => answer(t, s)} />
-          <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Or type your answer..." className="rounded-xl" />
-          <Button disabled={pending || !text.trim()} onClick={() => answer(text, "text")} className="bg-indigo-600 text-white hover:bg-indigo-700">
+          <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Or type your answer..." className="rounded-xl bg-card" />
+          <Button disabled={pending || !text.trim()} onClick={() => answer(text, "text")} className="rounded-full bg-ink text-cream hover:bg-forest">
             {pending && <Loader2 className="animate-spin" />} Send answer
           </Button>
         </div>
       )}
 
       {structured && (r.status === "review" || done) && (
-        <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-800">
+        <div className="space-y-3 rounded-xl bg-cream-2 p-4">
+          <div className="flex items-center gap-2 ac-eyebrow text-forest">
             What your agent will share {r.aiSource && <SourceBadge source={r.aiSource} />}
           </div>
           {editing ? (
-            <Textarea value={edited} onChange={(e) => setEdited(e.target.value)} rows={3} className="rounded-xl bg-white" />
+            <Textarea value={edited} onChange={(e) => setEdited(e.target.value)} rows={3} className="rounded-xl bg-card" />
           ) : (
-            <p className="text-sm text-slate-900">{structured.summary}</p>
+            <p className="font-mono text-[13px] text-foreground">{structured.summary}</p>
           )}
           {Object.keys(structured.fields).length > 0 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-[13px]">
               {Object.entries(structured.fields).map(([k, v]) => (
                 <div key={k} className="contents">
-                  <dt className="text-slate-500">{k}</dt>
-                  <dd className="text-slate-900">{v}</dd>
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-foreground">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -112,15 +119,15 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
         <div className="flex flex-wrap gap-2">
           <Button
             disabled={pending}
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            className={LIME_BTN}
             onClick={() => decide("approve", editing && edited.trim() !== structured.summary ? { editedSummary: edited.trim() } : undefined, "Approved and sent")}
           >
             <Check /> Approve &amp; send
           </Button>
-          <Button variant="outline" disabled={pending} onClick={() => setEditing((e) => !e)}>
+          <Button variant="outline" className={OUTLINE_BTN} disabled={pending} onClick={() => setEditing((e) => !e)}>
             <Pencil /> {editing ? "Stop editing" : "Edit"}
           </Button>
-          <Button variant="ghost" disabled={pending} onClick={() => decide("reject", undefined, "Not shared")}>
+          <Button variant="ghost" className="rounded-full" disabled={pending} onClick={() => decide("reject", undefined, "Not shared")}>
             <X /> Don&apos;t share
           </Button>
         </div>
@@ -130,12 +137,12 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
         <div className="flex flex-wrap gap-2">
           <Button
             disabled={pending}
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            className={LIME_BTN}
             onClick={() => (r.kind === "approval_intro" ? setConfirm(true) : decide("approve", r.sensitive ? { confirmed: true } : undefined, "Post published"))}
           >
             <Check /> {r.kind === "approval_post" ? "Approve & publish" : "Approve"}
           </Button>
-          <Button variant="outline" disabled={pending} onClick={() => decide("reject", undefined, r.kind === "approval_post" ? "Post rejected" : "Declined")}>
+          <Button variant="outline" className={OUTLINE_BTN} disabled={pending} onClick={() => decide("reject", undefined, r.kind === "approval_post" ? "Post rejected" : "Declined")}>
             <X /> {r.kind === "approval_post" ? "Reject" : "Decline"}
           </Button>
         </div>
@@ -145,17 +152,17 @@ export function RequestCard({ request: r }: { request: HumanRequest }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="size-5 text-rose-500" /> Confirm introduction
+              <ShieldCheck className="size-5 text-forest" /> Confirm introduction
             </DialogTitle>
             <DialogDescription>
               This shares your first name and contact with the other person, and only if they approve too. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm(false)}>Not yet</Button>
+            <Button variant="outline" className={OUTLINE_BTN} onClick={() => setConfirm(false)}>Not yet</Button>
             <Button
               disabled={pending}
-              className="bg-rose-500 text-white hover:bg-rose-600"
+              className="rounded-full bg-ink text-cream hover:bg-forest"
               onClick={() => {
                 setConfirm(false);
                 decide("approve", { confirmed: true }, "Approved. Waiting for the other person if needed.");

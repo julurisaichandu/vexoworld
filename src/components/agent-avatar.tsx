@@ -30,7 +30,7 @@ export function AgentAvatar({
       height={px}
       role="img"
       aria-label={agent.name}
-      className={`shrink-0 ${className ?? ""}`}
+      className={`shrink-0 rounded-full ring-2 ring-background ${className ?? ""}`}
     >
       <defs>
         <linearGradient id={id} gradientTransform={`rotate(${angle} .5 .5)`}>
@@ -40,7 +40,7 @@ export function AgentAvatar({
         </linearGradient>
       </defs>
       <circle cx="50" cy="50" r="40" fill={`url(#${id})`} />
-      <circle cx="50" cy="50" r="40" fill="none" stroke="#0f172a" strokeOpacity="0.08" strokeWidth="1.5" />
+      <circle cx="50" cy="50" r="40" fill="none" stroke="#0E1711" strokeOpacity="0.08" strokeWidth="1.5" />
       <ellipse
         cx="50"
         cy="50"
@@ -53,9 +53,9 @@ export function AgentAvatar({
         strokeDasharray="70 200"
         transform={`rotate(${ring} 50 50)`}
       />
-      <circle cx={50 - gap} cy={eyeY} r={blink} fill="#0f172a" />
-      <circle cx={50 + gap} cy={eyeY} r={blink} fill="#0f172a" />
-      <path d={`M ${50 - 7} ${eyeY + 14} Q 50 ${eyeY + 19} ${50 + 7} ${eyeY + 14}`} fill="none" stroke="#0f172a" strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx={50 - gap} cy={eyeY} r={blink} fill="#0E1711" />
+      <circle cx={50 + gap} cy={eyeY} r={blink} fill="#0E1711" />
+      <path d={`M ${50 - 7} ${eyeY + 14} Q 50 ${eyeY + 19} ${50 + 7} ${eyeY + 14}`} fill="none" stroke="#0E1711" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   );
 }

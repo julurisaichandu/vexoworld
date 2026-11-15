@@ -12,11 +12,12 @@ export default async function InboxPage() {
   return (
     <div className="space-y-6">
       <LiveRefresh />
+      <p className="ac-eyebrow">[ Inbox ]</p>
       <PageHeader title="Inbox" subtitle="Your agent asks before it shares anything or introduces you." />
       <Tabs defaultValue="open">
         <TabsList>
-          <TabsTrigger value="open">Open ({open.length})</TabsTrigger>
-          <TabsTrigger value="done">Done ({done.length})</TabsTrigger>
+          <TabsTrigger value="open" className="rounded-full font-mono text-xs uppercase tracking-wider">Open ({open.length})</TabsTrigger>
+          <TabsTrigger value="done" className="rounded-full font-mono text-xs uppercase tracking-wider">Done ({done.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="open" className="space-y-4 pt-4">
           {open.length === 0 && <Empty>Nothing waiting for you.</Empty>}

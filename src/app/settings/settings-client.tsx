@@ -19,11 +19,12 @@ import {
 } from "@/app/actions";
 import type { Permissions, Personality, PublishFrequency } from "@/lib/types";
 
-function Card({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
+function Card({ eyebrow, title, desc, children }: { eyebrow: string; title: string; desc?: string; children: ReactNode }) {
   return (
     <section className="ac-card p-5 md:p-6">
-      <h2 className="font-heading text-xl font-semibold">{title}</h2>
-      {desc && <p className="mt-1 text-sm text-slate-600">{desc}</p>}
+      <p className="ac-eyebrow">[ {eyebrow} ]</p>
+      <h2 className="mt-2 font-heading text-2xl tracking-[-0.025em]">{title}</h2>
+      {desc && <p className="mt-1 text-sm text-muted-foreground">{desc}</p>}
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -45,18 +46,17 @@ export function PermissionsCard({ permissions }: { permissions: Permissions }) {
   const [state, setState] = useState(permissions);
   const [, start] = useTransition();
   return (
-    <Card title="Permissions" desc="Nothing is shared unless it is switched on.">
+    <Card eyebrow="Privacy" title="Permissions" desc="Nothing is shared unless it is switched on.">
       <ul className="divide-y divide-border">
         {PERMS.map(([key, label, hint]) => (
           <li key={key} className="flex items-center justify-between gap-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">{label}</p>
-              <p className="text-[13px] text-slate-600">{hint}</p>
+              <p className="text-sm font-medium text-foreground">{label}</p>
+              <p className="text-[13px] text-muted-foreground">{hint}</p>
             </div>
             <Switch
               checked={state[key]}
               aria-label={label}
-              className="data-checked:bg-indigo-600"
               onCheckedChange={(v) => {
                 setState((s) => ({ ...s, [key]: v }));
                 start(async () => {
@@ -81,7 +81,7 @@ export function FrequencyCard({ value }: { value: PublishFrequency }) {
   const [, start] = useTransition();
   const cur = FREQUENCIES.find((f) => f.value === v)!;
   return (
-    <Card title="Publish frequency" desc={cur.hint}>
+    <Card eyebrow="Publishing" title="Publish frequency" desc={cur.hint}>
       <Select
         value={v}
         onValueChange={(next) => {
@@ -108,7 +108,7 @@ export function FrequencyCard({ value }: { value: PublishFrequency }) {
 export function AgentForm({ name, persona }: { name: string; persona: string }) {
   const [pending, start] = useTransition();
   return (
-    <Card title="Agent">
+    <Card eyebrow="Agent" title="Agent">
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -128,7 +128,7 @@ export function AgentForm({ name, persona }: { name: string; persona: string }) 
           <Label htmlFor="persona">Persona</Label>
           <Textarea id="persona" name="persona" defaultValue={persona} rows={2} required />
         </div>
-        <Button type="submit" disabled={pending} className="h-9 bg-indigo-600 px-4 text-white hover:bg-indigo-700">
+        <Button type="submit" disabled={pending} className="h-9 bg-lime px-5 text-forest hover:bg-[#b5f5a3]">
           Save
         </Button>
       </form>
@@ -139,7 +139,7 @@ export function AgentForm({ name, persona }: { name: string; persona: string }) 
 export function PersonalityForm({ personality: p }: { personality: Personality | null }) {
   const [pending, start] = useTransition();
   return (
-    <Card title="Personality" desc="Written by you, it overrides anything learned. Leave it empty to let your agent learn from your own words.">
+    <Card eyebrow="Agent" title="Personality" desc="Written by you, it overrides anything learned. Leave it empty to let your agent learn from your own words.">
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -174,7 +174,7 @@ export function PersonalityForm({ personality: p }: { personality: Personality |
           <Label htmlFor="postingStyle">Posting style</Label>
           <Input id="postingStyle" name="postingStyle" defaultValue={p?.postingStyle} className="h-10" />
         </div>
-        <Button type="submit" disabled={pending} className="h-9 bg-indigo-600 px-4 text-white hover:bg-indigo-700">
+        <Button type="submit" disabled={pending} className="h-9 bg-lime px-5 text-forest hover:bg-[#b5f5a3]">
           Save personality
         </Button>
       </form>
@@ -197,7 +197,7 @@ function Confirm({ open, onOpenChange, title, desc, action, label }: { open: boo
           </Button>
           <Button
             disabled={pending}
-            className="bg-rose-600 text-white hover:bg-rose-700"
+            variant="destructive"
             onClick={() => start(async () => { await action(); onOpenChange(false); toast.success("Done"); })}
           >
             {label}
@@ -212,7 +212,7 @@ export function DangerZone({ paused }: { paused: boolean }) {
   const [dlg, setDlg] = useState<"revoke" | "reset" | null>(null);
   const [pending, start] = useTransition();
   return (
-    <Card title="Safety">
+    <Card eyebrow="Safety" title="Safety">
       <div className="flex flex-wrap gap-3">
         <Button
           variant="outline"
@@ -222,7 +222,7 @@ export function DangerZone({ paused }: { paused: boolean }) {
         >
           {paused ? "Resume agent" : "Pause agent"}
         </Button>
-        <Button variant="outline" className="h-10 border-rose-200 text-rose-600 hover:bg-rose-50" onClick={() => setDlg("revoke")}>
+        <Button variant="outline" className="h-10 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => setDlg("revoke")}>
           Revoke all sharing
         </Button>
         <Button variant="outline" className="h-10" onClick={() => setDlg("reset")}>

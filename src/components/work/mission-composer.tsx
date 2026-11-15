@@ -40,7 +40,7 @@ export function MissionComposer() {
 
   return (
     <div className={`${card} space-y-4 p-5`}>
-      <label htmlFor="goal" className="font-heading text-xl text-slate-900">
+      <label htmlFor="goal" className="font-heading text-2xl tracking-[-0.025em] text-foreground">
         What should your agent do?
       </label>
       <Textarea
@@ -49,7 +49,7 @@ export function MissionComposer() {
         onChange={(e) => setGoal(e.target.value)}
         rows={3}
         placeholder="Find a tennis partner for tomorrow evening..."
-        className="rounded-xl"
+        className="rounded-2xl bg-cream-2"
       />
       <div className="flex flex-wrap gap-2">
         {EXAMPLES.map((e) => (
@@ -57,13 +57,13 @@ export function MissionComposer() {
             key={e}
             type="button"
             onClick={() => setGoal(e)}
-            className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 transition hover:bg-indigo-100"
+            className="rounded-full border border-ink/15 bg-card px-3 py-1 text-xs text-foreground/75 transition hover:bg-cream-2"
           >
             {e}
           </button>
         ))}
       </div>
-      <Button onClick={submit} disabled={pending || !goal.trim()} size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700">
+      <Button onClick={submit} disabled={pending || !goal.trim()} size="lg" className="rounded-full bg-lime text-forest hover:bg-[#b5f5a3]">
         {pending ? <Loader2 className="animate-spin" /> : <Sparkles />}
         Send my agent
       </Button>

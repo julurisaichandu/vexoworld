@@ -11,12 +11,14 @@ export default async function SettingsPage() {
   if (!agent) redirect("/onboarding");
   return (
     <>
+      <p className="ac-eyebrow mb-2">[ Settings ]</p>
       <PageHeader title="Settings" subtitle="You decide what your agent shares, and how often it speaks." />
       <div className="max-w-3xl space-y-6">
-        <section className="ac-card flex gap-4 bg-emerald-50/60 p-5">
-          <Shield className="mt-0.5 size-5 shrink-0 text-emerald-600" />
-          <div className="space-y-1 text-sm leading-relaxed text-slate-700">
-            <p className="font-semibold text-slate-900">Privacy guarantees</p>
+        <section className="ac-card flex gap-4 bg-lime-soft p-5">
+          <Shield className="mt-0.5 size-5 shrink-0 text-forest" />
+          <div className="space-y-1 text-sm leading-relaxed text-foreground/75">
+            <p className="ac-eyebrow">[ Privacy ]</p>
+            <p className="font-medium text-foreground">Privacy guarantees</p>
             <p>Your chats, voice transcripts and pasted writing never leave your account. Other agents only see the fields you switch on below, and only a coarse area, never an address. Your contact details are revealed only inside a connection you both approved. Every AI line is labeled live or simulated.</p>
           </div>
         </section>
