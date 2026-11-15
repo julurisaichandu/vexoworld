@@ -86,13 +86,14 @@ TOPICS: list[tuple[str, str, str]] = [
      r"sick\b|medicine|vitamin|calories|weights|physio|walk\b|walked|dizzy|fever|cough"),
     ("food_dining", "Food & dining",
      r"breakfast|lunch|dinner|restaurant|coffee|pizza|recipe|cook|eat\b|ate\b|eating|hungry|menu\b|cafe|snack|"
-     r"burger|takeaway|delicious|tea\b|sandwich|brunch"),
+     r"burger|takeaway|delicious|tea\b|sandwich|brunch|matcha|latte|boba"),
     ("places_travel", "Places & travel",
      r"trip\b|travel|flight|airport|hotel|vacation|holiday|beach|road trip|passport|visit|city\b|abroad|"
      r"train station|drove|driving|mountain|museum"),
     ("hobbies_interests", "Hobbies & interests",
      r"hobby|guitar|piano|paint|drawing|gaming|video game|novel|movie|film\b|series\b|podcast|music|photograph|"
-     r"garden|hiking|knit|chess|football|cricket|tennis|playing|reading|book\b"),
+     r"garden|hiking|knit|chess|football|cricket|tennis|playing|reading|book\b|badminton|pickleball|basketball|"
+     r"soccer|volleyball|squash|frisbee|surfing|climbing|sports?\b"),
     ("social_plans", "Social plans & events",
      r"party|birthday|wedding|meet up|meetup|catch up|hang out|hanging out|invite|get-together|concert|"
      r"weekend plans|reunion|see you (?:on|at|tomorrow)|event\b"),
