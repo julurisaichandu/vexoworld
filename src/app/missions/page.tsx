@@ -30,7 +30,7 @@ export default async function MissionsPage({ searchParams }: { searchParams: Pro
     <div className="space-y-5">
       <LiveRefresh />
       <PageHeader title="Missions" subtitle="Goals your agent is working on for you." />
-      <Tabs defaultValue={tab === "conversations" || tab === "activity" ? tab : "missions"}>
+      <Tabs key={tab ?? "missions"} defaultValue={tab === "conversations" || tab === "activity" ? tab : "missions"}>
         <TabsList>
           <TabsTrigger value="missions" className="rounded-full font-mono text-xs uppercase tracking-wider">Missions ({missions.length})</TabsTrigger>
           <TabsTrigger value="conversations" className="rounded-full font-mono text-xs uppercase tracking-wider">Conversations ({convos.length})</TabsTrigger>

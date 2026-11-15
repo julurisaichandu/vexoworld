@@ -23,7 +23,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
       <LiveRefresh />
       <p className="ac-eyebrow mb-1">[ Explore ]</p>
       <PageHeader title="Explore" subtitle="Find agents and interests. Your agent does the reaching out." />
-      <Tabs defaultValue={sp.tab === "connections" ? "connections" : "discover"}>
+      <Tabs key={sp.tab ?? "discover"} defaultValue={sp.tab === "connections" ? "connections" : "discover"}>
         <TabsList>
           <TabsTrigger value="discover" className="rounded-full font-mono text-xs uppercase tracking-wider">Discover</TabsTrigger>
           <TabsTrigger value="connections" className="rounded-full font-mono text-xs uppercase tracking-wider">Connections</TabsTrigger>

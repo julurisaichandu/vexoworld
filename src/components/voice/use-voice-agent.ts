@@ -245,16 +245,24 @@ export function useVoiceAgent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sendText, stop]);
 
-  const startLive = useCallback(async (): Promise<boolean> => {
+  // Returns true when it handled the start (or stop() cancelled it), false to fall back to browser speech.
+  const startLive = useCallback(async (myEpoch: number): Promise<boolean> => {
     const tokenRes = await fetch("/api/voice/token", { method: "POST" }).catch(() => null);
+    if (epoch.current !== myEpoch) return true;
     if (!tokenRes?.ok) return false;
     const { accessToken } = (await tokenRes.json()) as { accessToken: string };
+    if (epoch.current !== myEpoch) return true;
     let media: MediaStream;
     try {
       media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch {
+      if (epoch.current !== myEpoch) return true;
       setError("Microphone permission was denied.");
       setStatus("error");
+      return true;
+    }
+    if (epoch.current !== myEpoch) {
+      media.getTracks().forEach((t) => t.stop());
       return true;
     }
     stream.current = media;
@@ -326,9 +334,10 @@ export function useVoiceAgent() {
   /** Must be called from a user click: this is the only place the mic is ever opened. */
   const start = useCallback(async () => {
     if (active.current) return;
+    const myEpoch = epoch.current;
     setError(null);
     setStatus("connecting");
-    if (!(await startLive())) startBrowser();
+    if (!(await startLive(myEpoch)) && epoch.current === myEpoch) startBrowser();
   }, [startLive, startBrowser]);
 
   const confirm = useCallback(() => {

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Mic, Square, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { useVoiceAgent, VoiceStatus } from "./use-voice-agent";
 
 const STATUS_LABEL: Record<VoiceStatus, string> = {
@@ -15,6 +17,7 @@ const STATUS_LABEL: Record<VoiceStatus, string> = {
 };
 
 export function VoiceConsole({ v }: { v: ReturnType<typeof useVoiceAgent> }) {
+  const [text, setText] = useState("");
   const running = v.status === "listening" || v.status === "thinking" || v.status === "speaking" || v.status === "connecting";
 
   return (
@@ -36,6 +39,21 @@ export function VoiceConsole({ v }: { v: ReturnType<typeof useVoiceAgent> }) {
         </span>
       </div>
       {v.interim && <p className="text-sm text-muted-foreground" aria-live="polite">{v.interim}</p>}
+      {v.mode === "simulated" && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            v.sendText(text);
+            setText("");
+          }}
+        >
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what you would say (simulated voice)" aria-label="Message your agent" className="h-9 rounded-full px-4" />
+          <Button type="submit" disabled={!text.trim() || v.status === "thinking"} className="rounded-full bg-ink text-cream hover:bg-forest">
+            Send
+          </Button>
+        </form>
+      )}
       {v.error && <p className="rounded-2xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{v.error}</p>}
 
       {v.pendingConfirm && (
