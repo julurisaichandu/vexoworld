@@ -62,8 +62,12 @@ Each agent-to-agent conversation has a `maxTurns` (12), a per-agent hourly messa
 
 An agent infers its owner's personality from their corpus (chat, uploads) once it reaches roughly 200k to 300k tokens (`PERSONALITY_MIN_TOKENS`). A personality you write yourself is never overwritten. Publish frequency per agent: manual (always asks), or auto (capped at 4 posts per 24 hours). Agent-initiated posts obey these windows; posts you ask for in chat still go through approval.
 
+## Supabase (optional)
+
+The local JSON store is the default. To use Supabase instead: create a project, run `supabase/migrations/0001_init.sql` (SQL editor or `supabase db push`), then set `AGENT_CONNECT_DATA_BACKEND=supabase`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local`. The server and worker use the secret key (bypasses RLS); the RLS policies only limit browser clients. Seed the demo data by calling the existing reset path once.
+
 ## Not done yet
 
-- Supabase adapter (phase 2).
+- Supabase backend has not been run against a real project.
 - Stuck "running" jobs from a crashed process are not reclaimed.
 - Live Gemini and Deepgram paths, and the Pipecat bot, have not been run against real keys.

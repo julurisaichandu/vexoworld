@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { buildSeed } from "./seed";
+import { supabaseStore } from "./store-supabase";
 import type { Database, TableName, Tables } from "./types";
 
 // Local persistence: one JSON file, guarded by a cross-process lock dir so the Next server and
@@ -100,6 +101,8 @@ function withDb<T>(fn: (db: Database) => T, write: boolean): Promise<T> {
   return p;
 }
 
+const useSupabase = () => process.env.AGENT_CONNECT_DATA_BACKEND === "supabase";
+
 const matches = <T>(row: T, where?: Partial<T>) =>
   !where || Object.entries(where).every(([k, v]) => (row as Record<string, unknown>)[k] === v);
 
@@ -115,6 +118,7 @@ export const store = {
     where?: Partial<Tables[K]>,
     opts: { order?: "asc" | "desc"; limit?: number } = {},
   ): Promise<Tables[K][]> {
+    if (useSupabase()) return supabaseStore.list(table, where, opts);
     return withDb((db) => {
       const rows = (db[table] as Tables[K][]).filter((r) => matches(r, where));
       const dir = opts.order === "asc" ? 1 : -1;
@@ -124,14 +128,16 @@ export const store = {
   },
 
   get<K extends TableName>(table: K, id: string): Promise<Tables[K] | null> {
+    if (useSupabase()) return supabaseStore.get(table, id);
     return withDb((db) => (db[table] as Tables[K][]).find((r) => (r as { id: string }).id === id) ?? null, false);
   },
 
   insert<K extends TableName>(table: K, row: NewRow<K>): Promise<Tables[K]> {
+    const full = { id: newId(PREFIX[table]), createdAt: now(), ...row } as Tables[K];
+    if ("updatedAt" in (full as object) || table === "missions" || table === "collaborations" || table === "jobs")
+      (full as { updatedAt?: string }).updatedAt ??= (full as { createdAt: string }).createdAt;
+    if (useSupabase()) return supabaseStore.insert(table, full);
     return withDb((db) => {
-      const full = { id: newId(PREFIX[table]), createdAt: now(), ...row } as Tables[K];
-      if ("updatedAt" in (full as object) || table === "missions" || table === "collaborations" || table === "jobs")
-        (full as { updatedAt?: string }).updatedAt ??= (full as { createdAt: string }).createdAt;
       (db[table] as Tables[K][]).push(full);
       return full;
     }, true);
@@ -148,6 +154,7 @@ export const store = {
     where: Partial<Tables[K]>,
     patch: Partial<Tables[K]>,
   ): Promise<Tables[K] | null> {
+    if (useSupabase()) return supabaseStore.updateIf(table, id, where, patch, now());
     return withDb((db) => {
       const rows = db[table] as Tables[K][];
       const i = rows.findIndex((r) => (r as { id: string }).id === id);
@@ -160,6 +167,7 @@ export const store = {
   },
 
   remove<K extends TableName>(table: K, id: string): Promise<boolean> {
+    if (useSupabase()) return supabaseStore.remove(table, id);
     return withDb((db) => {
       const rows = db[table] as Tables[K][];
       const i = rows.findIndex((r) => (r as { id: string }).id === id);
@@ -170,6 +178,7 @@ export const store = {
 
   /** Rebuilds the database from the demo seed. */
   reset(): Promise<void> {
+    if (useSupabase()) return supabaseStore.reset();
     return withDb((db) => {
       Object.assign(db, emptyDb(), buildSeed());
     }, true);
