@@ -18,7 +18,11 @@ const openOf = async (userId: string, kind: string) =>
   (await store.list("humanRequests", { userId })).filter((r) => r.kind === kind && (r.status === "pending" || r.status === "review"));
 const BADMINTON = "Find someone who wants to play badminton tomorrow";
 
-beforeEach(() => store.reset());
+// These scenarios assume the original five-person network: the newer seed neighbours (badminton, matcha...) would join their missions.
+beforeEach(async () => {
+  await store.reset();
+  for (const k of ["dev", "kai", "maya", "noah"]) await store.update("agents", `agt_${k}`, { paused: true });
+});
 afterEach(() => vi.useRealTimers());
 
 describe("collaboration protocol", () => {
@@ -151,6 +155,7 @@ describe("privacy", () => {
     const mk = (draft: string) =>
       store.insert("humanRequests", { userId: "usr_alex", agentId: "agt_alex", kind: "approval_post", status: "pending", sensitive: true, prompt: draft, context: "", postDraft: draft });
     const older = await mk("older post here today");
+    await new Promise((r) => setTimeout(r, 5)); // same-millisecond createdAt would make "newest" a coin flip
     const shown = await mk("shown post here today");
     await new Promise((r) => setTimeout(r, 5));
     const asked = await chatWithAgent("usr_alex", "yes", "text");
