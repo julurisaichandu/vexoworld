@@ -33,6 +33,7 @@ const stat = async () => (await store.list("bandTranscripts", { userId })).map((
 
 beforeEach(async () => {
   await store.reset();
+  await store.update("bandSettings", "bst_sam", { bandNumber: 99 });
   userId = (await store.list("agents"))[0].userId;
   await store.update("agents", (await store.list("agents", { userId }))[0].id, { paused: false });
 });

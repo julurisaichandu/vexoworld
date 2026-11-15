@@ -18,6 +18,7 @@ const types = async () => (await store.list("messages", undefined, { order: "asc
 
 beforeEach(async () => {
   await store.reset();
+  for (const k of ["dev", "kai", "maya", "noah"]) await store.update("agents", `agt_${k}`, { paused: true });
 });
 
 describe("overlap", () => {

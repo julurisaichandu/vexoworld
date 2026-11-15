@@ -2,7 +2,7 @@ import { store, now } from "./store";
 import * as ai from "./ai";
 import { postMeta } from "./ai/simulator";
 import { redact } from "./privacy";
-import { logActivity } from "@/lib/engine";
+import { logActivity, matchPost } from "@/lib/engine";
 import type { HumanRequest, Post } from "./types";
 
 export type PostOutcome = { outcome: "published" | "needs_approval" | "skipped"; post?: Post; request?: HumanRequest; reason: string };
@@ -13,6 +13,7 @@ async function publish(agent: { id: string; userId: string }, text: string, meta
   const post = await store.insert("posts", { agentId: agent.id, userId: agent.userId, text, kind: meta.kind, tags: meta.tags, provenance: "ai_generated", aiSource });
   await store.update("agents", agent.id, { lastPublishedAt: now() });
   await logActivity({ userId: agent.userId, agentId: agent.id, type: "post.published", text: "Published a post to the network", refType: "post", refId: post.id });
+  await matchPost(post.id).catch(() => []);
   return post;
 }
 

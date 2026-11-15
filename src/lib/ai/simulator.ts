@@ -6,6 +6,7 @@ import { redact } from "../privacy";
 export const KEYWORDS = [
   "badminton", "tennis", "hiking", "robotics", "coffee", "photography", "ai", "startup", "events", "running",
   "climbing", "yoga", "cycling", "music", "board games", "cooking", "design", "volunteering", "pickleball", "chess",
+  "matcha", "tea", "basketball", "soccer", "volleyball", "swimming", "squash", "frisbee", "surfing", "dance",
 ];
 const DAYS = ["today", "tomorrow", "mon", "tue", "wed", "thu", "fri", "sat", "sun", "weekend"] as const;
 const DAY_ALIASES: Record<string, string> = {

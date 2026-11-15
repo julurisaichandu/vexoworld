@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Bell } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { markNotificationsReadAction } from "@/app/actions";
@@ -9,7 +12,21 @@ import type { Activity } from "@/lib/types";
 
 const HREF: Record<string, string> = { mission: "/missions", collaboration: "/conversations", post: "/", request: "/inbox", connection: "/connections" };
 
+const hrefOf = (n: Activity) => {
+  const base = n.refType ? HREF[n.refType] : undefined;
+  return base && n.refId && (n.refType === "mission" || n.refType === "collaboration") ? `${base}/${n.refId}` : (base ?? "/activity");
+};
+
 export function NotificationsBell({ items }: { items: Activity[] }) {
+  const router = useRouter();
+  const seen = useRef(new Set(items.map((n) => n.id)));
+  useEffect(() => {
+    for (const n of items) {
+      if (seen.current.has(n.id)) continue;
+      seen.current.add(n.id);
+      if (!n.read && n.type === "match.found") toast(n.text, { id: n.id, action: { label: "View", onClick: () => router.push(hrefOf(n)) } });
+    }
+  }, [items, router]);
   const unread = items.filter((n) => !n.read).length;
   return (
     <DropdownMenu onOpenChange={(open) => open && unread > 0 && void markNotificationsReadAction()}>
@@ -26,8 +43,7 @@ export function NotificationsBell({ items }: { items: Activity[] }) {
         <div className="px-2 py-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">[ Notifications ]</div>
         {items.length === 0 && <div className="px-2 py-6 text-center text-sm text-muted-foreground">Nothing yet. Your agent will tell you.</div>}
         {items.map((n) => {
-          const base = n.refType ? HREF[n.refType] : undefined;
-          const href = base && n.refId && (n.refType === "mission" || n.refType === "collaboration") ? `${base}/${n.refId}` : (base ?? "/activity");
+          const href = hrefOf(n);
           return (
             <DropdownMenuItem key={n.id} render={<Link href={href} />} className="items-start gap-2.5 py-2">
               <span className={`mt-1.5 size-2 shrink-0 rounded-full ${n.read ? "bg-border" : "bg-lime"}`} />

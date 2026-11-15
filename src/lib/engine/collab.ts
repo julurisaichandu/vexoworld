@@ -288,11 +288,13 @@ export async function recordIntroDecision(req: HumanRequest, approve: boolean): 
   await sendMessage(collab, x.ia.id, x.ra.id, "intro_accepted", {}, "My human said yes to the introduction.", "human_verified");
   await sendMessage(collab, x.ra.id, x.ia.id, "intro_accepted", {}, "My human said yes too.", "human_verified");
   const m = await store.get("missions", collab.missionId);
-  const interest = m?.interests[0] ?? collab.topic;
+  // Post matches keep one topic per collaboration; mission topics carry a day suffix ("badminton tomorrow").
+  const interest = m?.interests.includes(collab.topic) ? collab.topic : (m?.interests[0] ?? collab.topic);
   const ag = won.agreed ?? {};
-  const outcome = `Matched with ${x.ru.name.split(" ")[0]} for ${interest} ${ag.time ?? ""}${ag.area ? ` (${ag.area})` : ""}`;
+  const what = [interest, ag.time].filter(Boolean).join(" ");
+  const outcome = `Matched with ${x.ru.name.split(" ")[0]} for ${what}${ag.area ? ` (${ag.area})` : ""}`;
   await completeMission(collab.missionId, outcome, `It's a match! ${outcome}`);
-  await logActivity({ userId: b, agentId: x.ra.id, type: "connection.mutual", text: `It's a match! You and ${x.iu.name.split(" ")[0]} both said yes (${interest} ${ag.time ?? ""}).`, refType: "connection", refId: con.id, notify: true });
+  await logActivity({ userId: b, agentId: x.ra.id, type: "connection.mutual", text: `It's a match! You and ${x.iu.name.split(" ")[0]} both said yes (${what}).`, refType: "connection", refId: con.id, notify: true });
   await logActivity({ userId: a, agentId: x.ia.id, type: "connection.mutual", text: `It's a match! You and ${x.ru.name.split(" ")[0]} both said yes.`, refType: "connection", refId: con.id, notify: true });
 }
 

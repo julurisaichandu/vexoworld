@@ -3,3 +3,5 @@ export { answerRequest, decideRequest } from "./inbox";
 export { enqueue, kickJobs, processJobs } from "./jobs";
 export { logActivity } from "./log";
 export { overlap } from "./slots";
+export { matchPost } from "./matchmaker";
+export type { PostMatch } from "./matchmaker";
