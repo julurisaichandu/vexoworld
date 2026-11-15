@@ -76,7 +76,7 @@ export function useVoiceAgent() {
       });
     if (epoch.current !== myEpoch) return;
     setStatus("speaking");
-    if (modeRef.current === "live") {
+    if (modeRef.current !== "simulated") {
       const ctrl = new AbortController();
       ttsAbort.current = ctrl;
       try {
