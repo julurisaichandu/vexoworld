@@ -85,7 +85,7 @@ export const supabaseStore = {
   /** Deletes every row, then inserts the demo seed. Not atomic across tables. */
   async reset(): Promise<void> {
     const seed = buildSeed() as Record<string, Row[] | undefined>;
-    for (const t of Object.keys(seed).concat(["jobs", "corpus", "chat"]) as TableName[]) {
+    for (const t of Object.keys(seed).concat(["jobs", "corpus", "chat", "bandSettings", "bandTranscripts"]) as TableName[]) {
       check(await db().from(tbl(t)).delete().neq("id", ""));
     }
     for (const [t, rows] of Object.entries(seed)) {

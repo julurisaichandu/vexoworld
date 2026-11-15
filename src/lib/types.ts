@@ -266,6 +266,45 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+// Vexo band: continuous audio -> transcripts -> topic-filtered posts.
+export const BAND_TOPICS = ["daily_activities","work","health_fitness","food_dining","places_travel","hobbies_interests","social_plans","personal_feelings","relationships_family","financial"] as const;
+export type BandTopic = (typeof BAND_TOPICS)[number];
+export type BandPublishInterval = "1m" | "2m" | "5m" | "10m" | "1d";
+
+export interface BandSettings {
+  id: ID;
+  userId: ID;
+  bandNumber: number;
+  audioEnabled: boolean; // default false
+  autoPublish: boolean; // default true
+  publishInterval: BandPublishInterval; // default "5m"
+  topics: Record<BandTopic, boolean>; // default all false: opt-in
+  lastSeenAt?: string; // capture heartbeat
+  lastPublishedAt?: string;
+  lastOutcome?: string; // one human sentence about the last publish attempt
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BandTranscriptStatus = "pending" | "published" | "filtered" | "awaiting_approval";
+
+export interface BandTranscript {
+  id: ID;
+  userId: ID;
+  bandNumber: number;
+  externalId: string;
+  text: string; // PRIVATE. Never shown to other users.
+  startedAt: string;
+  endedAt: string;
+  words: number;
+  topics: BandTopic[];
+  topicSource: "gemini" | "rules";
+  status: BandTranscriptStatus;
+  reason?: string;
+  postId?: string;
+  createdAt: string;
+}
+
 export interface Tables {
   users: User;
   agents: Agent;
@@ -280,6 +319,8 @@ export interface Tables {
   jobs: Job;
   corpus: CorpusEntry;
   chat: ChatMessage;
+  bandSettings: BandSettings;
+  bandTranscripts: BandTranscript;
 }
 
 export type TableName = keyof Tables;

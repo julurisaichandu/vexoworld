@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Activity, Bot, Compass, Home, Inbox, MessagesSquare, MoreHorizontal, Settings, Target, Users } from "lucide-react";
+import { Activity, Bot, Compass, Home, Inbox, MessagesSquare, MoreHorizontal, Radio, Settings, Target, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/agent", label: "My Agent", icon: Bot },
+  { href: "/band", label: "Band", icon: Radio },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/missions", label: "Missions", icon: Target },
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },

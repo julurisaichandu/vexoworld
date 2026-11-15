@@ -27,6 +27,8 @@ const PREFIX: Record<TableName, string> = {
   jobs: "job",
   corpus: "cor",
   chat: "cht",
+  bandSettings: "bst",
+  bandTranscripts: "btr",
 };
 
 export const newId = (prefix: string) => `${prefix}_${nanoid(10)}`;
@@ -46,6 +48,8 @@ const emptyDb = (): Database => ({
   jobs: [],
   corpus: [],
   chat: [],
+  bandSettings: [],
+  bandTranscripts: [],
 });
 
 async function acquire() {

@@ -1,0 +1,22 @@
+[project]
+name = "band-capture"
+version = "0.1.0"
+description = "Records a Vexo Open band continuously and sends topic-tagged transcripts to VexoWorld."
+requires-python = ">=3.11"
+dependencies = [
+    "pipecat-ai[deepgram,google]==1.16.0",
+    "av>=15",
+    "vexo-open[ble,serial] @ git+https://github.com/VexoAI-Org/vexo-open-kit@1e4291e2fa4896b1f603d3d4f0b009c483425da0#subdirectory=python",
+    "python-dotenv>=1.0",
+    "aiohttp>=3.9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "websockets>=13"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+# deepgram-sdk 7.19 still imports the legacy websockets client
+filterwarnings = ["ignore::DeprecationWarning:deepgram.*", "ignore::DeprecationWarning:websockets.*"]

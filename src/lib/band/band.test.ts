@@ -1,0 +1,151 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { store } from "@/lib/store";
+import type { BandTopic } from "@/lib/types";
+import { BAND_TOPICS } from "@/lib/types";
+import { POST as configPOST } from "@/app/api/band/config/route";
+import { POST as transcriptPOST } from "@/app/api/band/transcripts/route";
+import {
+  capWords, getBandSettings, ingestTranscript, publishDue, publishNow, signBand, updateBandSettings, verifyBandRequest,
+} from "@/lib/band";
+
+const SECRET = "x".repeat(32);
+process.env.VEXOWORLD_BAND_SECRET = SECRET;
+const VECTOR = "3b272d1a0425220927ea7695ecd970d791d3cc3c45b1e20365e924bd264896ae";
+
+const signed = (url: string, body: unknown, ts = String(Math.floor(Date.now() / 1000)), sig?: string) => {
+  const raw = JSON.stringify(body);
+  return new Request(`http://x${url}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-vexo-timestamp": ts, "x-vexo-signature": sig ?? signBand(SECRET, ts, raw) },
+    body: raw,
+  });
+};
+
+let userId: string;
+const T0 = "2026-01-01T10:00:00Z";
+let n = 0;
+const add = (text: string, topics: BandTopic[]) =>
+  store.insert("bandTranscripts", {
+    userId, bandNumber: 47, externalId: `e${++n}`, text, startedAt: T0, endedAt: T0, words: text.split(" ").length,
+    topics, topicSource: "rules", status: "pending",
+  });
+const stat = async () => (await store.list("bandTranscripts", { userId })).map((t) => t.status);
+
+beforeEach(async () => {
+  await store.reset();
+  userId = (await store.list("agents"))[0].userId;
+  await store.update("agents", (await store.list("agents", { userId }))[0].id, { paused: false });
+});
+
+describe("signature", () => {
+  it("matches the shared test vector", () => {
+    expect(signBand(SECRET, "1700000000", '{"band":47}')).toBe(VECTOR);
+  });
+  it("accepts a good request, rejects bad signature, stale timestamp and short secret", async () => {
+    expect((await verifyBandRequest(signed("/a", { band: 47 }))).ok).toBe(true);
+    const bad = await verifyBandRequest(signed("/a", { band: 47 }, undefined, "0".repeat(64)));
+    expect(bad).toMatchObject({ ok: false, status: 401 });
+    const stale = await verifyBandRequest(signed("/a", { band: 47 }, String(Math.floor(Date.now() / 1000) - 400)));
+    expect(stale).toMatchObject({ ok: false, status: 401 });
+    process.env.VEXOWORLD_BAND_SECRET = "short";
+    expect(await verifyBandRequest(signed("/a", { band: 47 }))).toMatchObject({ ok: false, status: 401 });
+    process.env.VEXOWORLD_BAND_SECRET = SECRET;
+  });
+});
+
+describe("capWords", () => {
+  it("keeps at most 199 words", () => {
+    const long = Array.from({ length: 500 }, (_, i) => `w${i}`).join(" ");
+    expect(capWords(long).split(/\s+/)).toHaveLength(199);
+    expect(capWords("short post")).toBe("short post");
+  });
+});
+
+describe("routes and ingest", () => {
+  it("answers unclaimed, then audio_off, then stores once", async () => {
+    const body = { band: 47, id: "11111111-1111-4111-8111-111111111111", text: "had a great coffee", startedAt: T0, endedAt: T0, topics: ["food_dining", "bogus"], topicSource: "rules" };
+    const call = async () => (await (await transcriptPOST(signed("/api/band/transcripts", body))).json()).status;
+    expect(await call()).toBe("unclaimed");
+    await getBandSettings(userId);
+    expect(await call()).toBe("audio_off");
+    expect(await store.list("bandTranscripts", { userId })).toHaveLength(0);
+    expect(await (await configPOST(signed("/api/band/config", { band: 47 }))).json()).toEqual({ audioEnabled: false, claimed: true });
+    await updateBandSettings(userId, { audioEnabled: true });
+    expect(await call()).toBe("stored");
+    expect(await call()).toBe("duplicate");
+    const [t] = await store.list("bandTranscripts", { userId });
+    expect(t.topics).toEqual(["food_dining"]);
+    expect((await getBandSettings(userId)).lastSeenAt).toBeTruthy();
+  });
+  it("rejects bad signature (401), empty body (400) and long text (413)", async () => {
+    await updateBandSettings(userId, { audioEnabled: true });
+    expect((await configPOST(signed("/c", { band: 47 }, undefined, "0".repeat(64)))).status).toBe(401);
+    expect((await configPOST(signed("/c", { band: "x" }))).status).toBe(400);
+    const base = { band: 47, id: "a", startedAt: T0, endedAt: T0, topics: [], topicSource: "rules" };
+    expect((await transcriptPOST(signed("/t", { ...base, text: "x".repeat(16001) }))).status).toBe(413);
+    expect(await ingestTranscript({ ...base, text: "ok" } as never)).toBe("stored");
+  });
+});
+
+describe("publishing", () => {
+  it("filters untagged and disabled-topic transcripts, publishes enabled ones", async () => {
+    await updateBandSettings(userId, { topics: { food_dining: true } });
+    await add("Nothing tagged here.", []);
+    await add("Paid my rent today.", ["financial"]);
+    await add("Great ramen for lunch. Really good.", ["food_dining"]);
+    const r = await publishNow(userId);
+    expect(r.outcome).toBe("published");
+    expect(await stat()).toEqual(expect.arrayContaining(["filtered", "filtered", "published"]));
+    const filtered = (await store.list("bandTranscripts", { userId, status: "filtered" })).map((t) => t.reason);
+    expect(filtered).toContain("No topic detected");
+    expect(filtered).toContain("Mentions Money & finances, which you have not switched on");
+    const post = (await store.list("posts", { userId }))[0];
+    expect(post.text).toContain("ramen");
+    expect(post.text).not.toContain("rent");
+    expect((await getBandSettings(userId)).lastOutcome).toMatch(/Published 1 post/);
+  });
+  it("publishes nothing when all are filtered", async () => {
+    await add("Anything.", []);
+    const r = await publishNow(userId);
+    expect(r.outcome).toBe("nothing");
+  });
+  it("all topics enabled publishes a post under the word cap", async () => {
+    await updateBandSettings(userId, { topics: Object.fromEntries(BAND_TOPICS.map((t) => [t, true])) });
+    await add(Array.from({ length: 400 }, (_, i) => `w${i}`).join(" ") + ".", ["work"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    expect((await store.list("posts", { userId }))[0].text.split(/\s+/).length).toBeLessThanOrEqual(199);
+  });
+  it("requirePostApproval creates an approval_post request", async () => {
+    const agent = (await store.list("agents", { userId }))[0];
+    await store.update("agents", agent.id, { permissions: { ...agent.permissions, requirePostApproval: true } });
+    await updateBandSettings(userId, { topics: { work: true } });
+    await add("Shipped the feature at work.", ["work"]);
+    const before = (await store.list("posts", { userId })).length;
+    expect((await publishNow(userId)).outcome).toBe("needs_approval");
+    const req = (await store.list("humanRequests", { userId, kind: "approval_post", status: "pending" })).find((r) => r.postDraft?.includes("Shipped"));
+    expect(req).toBeTruthy();
+    expect((await store.list("posts", { userId })).length).toBe(before);
+    expect(await stat()).toEqual(["awaiting_approval"]);
+  });
+  it("skips and keeps transcripts pending when the agent is paused", async () => {
+    const agent = (await store.list("agents", { userId }))[0];
+    await store.update("agents", agent.id, { paused: true });
+    await updateBandSettings(userId, { topics: { work: true } });
+    await add("Work thing.", ["work"]);
+    expect((await publishNow(userId)).outcome).toBe("skipped");
+    expect(await stat()).toEqual(["pending"]);
+  });
+  it("publishDue respects the interval and publishes once under concurrency", async () => {
+    const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1m" });
+    await add("First work thing.", ["work"]);
+    // interval not elapsed since creation
+    expect(await publishDue()).toBe(0);
+    await store.update("bandSettings", s.id, { lastPublishedAt: new Date(Date.now() - 120_000).toISOString() });
+    const before = (await store.list("posts", { userId })).length;
+    const made = await Promise.all([publishDue(), publishDue()]);
+    expect(made.reduce((a, b) => a + b, 0)).toBe(1);
+    expect((await store.list("posts", { userId })).length).toBe(before + 1);
+    await add("Second work thing.", ["work"]);
+    expect(await publishDue()).toBe(0); // 1m interval not elapsed again
+  });
+});
