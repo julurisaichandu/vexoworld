@@ -10,7 +10,7 @@
   --font-sans: var(--font-geist);
   --font-mono: var(--font-jetbrains);
   --font-heading: var(--font-display);
-  /* VexoWorld palette (paypath-style): cream paper, near-black ink, deep forest, lime signal */
+  /* VexoWorld palette: cream paper, near-black ink, deep forest, lime signal */
   --color-cream: #fcfaee;
   --color-cream-2: #f3f0dd;
   --color-ink: #0e1711;
@@ -103,7 +103,7 @@
   box-shadow: 0 1px 2px rgb(14 23 17 / 0.04), 0 14px 34px -20px rgb(20 41 10 / 0.22);
 }
 
-/* dark feature panel, like paypath's near-black sections */
+/* dark feature panel: near-black section */
 @utility ac-panel-dark {
   border-radius: calc(var(--radius) * 2.2);
   border: 1px solid rgb(255 255 255 / 0.08);
