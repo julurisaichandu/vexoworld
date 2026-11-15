@@ -24,7 +24,7 @@ export function NotificationsBell({ items }: { items: Activity[] }) {
     for (const n of items) {
       if (seen.current.has(n.id)) continue;
       seen.current.add(n.id);
-      if (!n.read && n.type === "match.found") toast(n.text, { id: n.id, action: { label: "View", onClick: () => router.push(hrefOf(n)) } });
+      if (!n.read && (n.type === "match.found" || n.type === "tip.found")) toast(n.text, { id: n.id, action: { label: "View", onClick: () => router.push(hrefOf(n)) } });
     }
   }, [items, router]);
   const unread = items.filter((n) => !n.read).length;

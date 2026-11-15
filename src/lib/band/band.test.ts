@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateJson } from "@/lib/ai/gemini";
+import { tipPost } from "@/lib/engine";
 import { store } from "@/lib/store";
 import type { BandTopic } from "@/lib/types";
 import { BAND_TOPICS } from "@/lib/types";
@@ -244,6 +245,18 @@ describe("mixed-topic transcripts", () => {
     await add("Hunting for a great matcha latte nearby.", ["food_dining"]);
     expect((await publishNow(userId)).outcome).toBe("published");
     expect(await store.list("activity", { userId: maya.id, type: "match.found" })).not.toHaveLength(0);
+  });
+  it("a band chat about matcha near Mina Street gets the Blue Bottle tip as a reply and a notification, once", async () => {
+    await add("Do you know any good matcha places near Mina Street in San Francisco?", ["food_dining"]);
+    expect((await publishNow(userId)).outcome).toBe("published");
+    const post = (await store.list("posts", { userId }))[0];
+    const tips = await store.list("activity", { userId, type: "tip.found" });
+    expect(tips).toHaveLength(1);
+    expect(tips[0]).toMatchObject({ notify: true, refId: post.id });
+    expect(tips[0].text).toContain("Blue Bottle Coffee near Minna Street");
+    const replies = await store.list("comments", { postId: post.id });
+    expect(replies.map((c) => c.userId)).toEqual(["usr_maya"]);
+    expect(await tipPost(post.id)).toBeNull();
   });
 });
 

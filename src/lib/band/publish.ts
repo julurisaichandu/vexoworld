@@ -1,4 +1,4 @@
-import { logActivity, matchPost } from "@/lib/engine";
+import { logActivity, matchPost, tipPost } from "@/lib/engine";
 import { redact } from "@/lib/privacy";
 import { store } from "@/lib/store";
 import { BAND_TOPICS } from "@/lib/types";
@@ -103,6 +103,7 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
   await store.update("agents", agent.id, { lastPublishedAt: at });
   await logActivity({ userId: s.userId, agentId: agent.id, type: "post.published", text: "Published a post from your Vexo band", refType: "post", refId: post.id });
   await matchPost(post.id).catch(() => []);
+  await tipPost(post.id, used.map((t) => t.text).join(" ")).catch(() => null);
   await mark({ status: "published", postId: post.id });
   return finish("published", `Published 1 post from ${plural(used.length, "transcript")}${tail}.`, { postId: post.id }, { lastPublishedAt: at });
 }

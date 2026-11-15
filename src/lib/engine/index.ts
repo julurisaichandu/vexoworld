@@ -4,4 +4,5 @@ export { enqueue, kickJobs, processJobs } from "./jobs";
 export { logActivity } from "./log";
 export { overlap } from "./slots";
 export { matchPost } from "./matchmaker";
+export { tipPost } from "./tips";
 export type { PostMatch } from "./matchmaker";
