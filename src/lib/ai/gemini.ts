@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ZodType } from "zod";
 
-export const geminiModel = () => process.env.GEMINI_MODEL || "gemini-2.5-flash";
+export const geminiModel = () => process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 let cached: { key: string; ai: GoogleGenAI } | null = null;
 

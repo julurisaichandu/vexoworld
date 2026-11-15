@@ -141,7 +141,7 @@ async def bot(runner_args: RunnerArguments):
     )
     llm = GoogleLLMService(
         api_key=os.environ["GEMINI_API_KEY"],
-        settings=GoogleLLMService.Settings(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash")),
+        settings=GoogleLLMService.Settings(model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash")),
     )
     tts = DeepgramTTSService(
         api_key=deepgram_key,
