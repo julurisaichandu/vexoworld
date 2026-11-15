@@ -1,6 +1,7 @@
 import { store } from "@/lib/store";
 import { BAND_TOPICS } from "@/lib/types";
 import type { BandPublishInterval, BandSettings, BandTopic, BandTranscript, BandTranscriptStatus } from "@/lib/types";
+import { findBandOwner } from "./ingest";
 import { INTERVAL_MS } from "./topics";
 
 const defaultBand = () => Number(process.env.VEXO_BAND_NUMBER) || 47;
@@ -14,18 +15,34 @@ export type BandPatch = {
   topics?: Partial<Record<BandTopic, boolean>>;
 };
 
-/** Creates the default row (audio off, auto-publish on, 5m, every topic off) on first call. */
-export async function getBandSettings(userId: string): Promise<BandSettings> {
+// The first call creates the row; bandNumber 0 means "no band claimed yet" (shown as the default). Saving claims it.
+const creating = new Map<string, Promise<BandSettings>>();
+
+const view = (row: BandSettings): BandSettings => ({ ...row, bandNumber: row.bandNumber || defaultBand(), topics: { ...noTopics(), ...row.topics } });
+
+/** Creates the default row (audio off, auto-publish on, 5m, every topic off, no band claimed) on first call. */
+export const getBandSettings = async (userId: string): Promise<BandSettings> => view(await ensureRow(userId));
+
+async function ensureRow(userId: string): Promise<BandSettings> {
   const rows = await store.list("bandSettings", { userId }, { order: "asc" });
-  if (rows[0]) return { ...rows[0], topics: { ...noTopics(), ...rows[0].topics } };
-  const at = new Date().toISOString();
-  return store.insert("bandSettings", {
-    userId, bandNumber: defaultBand(), audioEnabled: false, autoPublish: true, publishInterval: "5m", topics: noTopics(), updatedAt: at,
-  });
+  if (rows[0]) return rows[0];
+  // ponytail: in-process guard against two first calls inserting twice; publishDue and findBandOwner also read only the oldest row per user
+  let p = creating.get(userId);
+  if (!p) {
+    p = (async () => {
+      const again = (await store.list("bandSettings", { userId }, { order: "asc" }))[0];
+      return again ?? store.insert("bandSettings", {
+        userId, bandNumber: 0, audioEnabled: false, autoPublish: true, publishInterval: "5m", topics: noTopics(), updatedAt: new Date().toISOString(),
+      });
+    })().finally(() => creating.delete(userId));
+    creating.set(userId, p);
+  }
+  return p;
 }
 
 export async function updateBandSettings(userId: string, patch: BandPatch): Promise<BandSettings> {
-  const cur = await getBandSettings(userId);
+  const row = await ensureRow(userId);
+  const cur = view(row);
   if (patch.publishInterval !== undefined && !(patch.publishInterval in INTERVAL_MS)) throw new Error("Invalid publish interval");
   if (patch.bandNumber !== undefined && !(Number.isInteger(patch.bandNumber) && patch.bandNumber > 0 && patch.bandNumber < 1_000_000))
     throw new Error("Band number must be a positive whole number");
@@ -33,7 +50,20 @@ export async function updateBandSettings(userId: string, patch: BandPatch): Prom
   for (const k of ["bandNumber", "audioEnabled", "autoPublish", "publishInterval"] as const)
     if (patch[k] !== undefined) (next as Record<string, unknown>)[k] = patch[k];
   for (const t of BAND_TOPICS) if (typeof patch.topics?.[t] === "boolean") next.topics![t] = patch.topics[t]!;
-  return (await store.update("bandSettings", cur.id, next)) ?? cur;
+  // Any save claims the band number, first claim wins: another account's claim is never taken over.
+  const band = patch.bandNumber ?? cur.bandNumber;
+  const raw = row.bandNumber;
+  if (raw !== band) {
+    next.bandNumber = band;
+    const taken = (await findBandOwner(band))?.userId;
+    if (taken && taken !== userId) throw new Error(`Band ${band} is already linked to another account`);
+  }
+  const saved = (await store.update("bandSettings", cur.id, next)) ?? cur;
+  if (raw !== band && (await findBandOwner(band))?.id !== cur.id) {
+    await store.update("bandSettings", cur.id, { bandNumber: 0 }); // lost a simultaneous claim
+    throw new Error(`Band ${band} is already linked to another account`);
+  }
+  return view(saved);
 }
 
 export const listTranscripts = (userId: string, limit = 50): Promise<BandTranscript[]> =>

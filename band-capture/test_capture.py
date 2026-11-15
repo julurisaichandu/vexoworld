@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import re
+from http import HTTPStatus
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -392,6 +393,63 @@ def test_audio_switch_follows_the_app_and_is_reapplied_after_a_reconnect(monkeyp
     asyncio.run(go())
 
 
+def test_failed_switch_is_retried_and_off_flushes_deepgram(monkeypatch):
+    fake = FakeBand()
+    fails = [True]
+
+    async def configure(**streams):
+        fake.calls.append(streams)
+        if streams == {"audio": True} and fails[0]:
+            raise capture.VexoError("timeout", "no answer")
+
+    fake.configure = configure
+
+    async def connect(number, **options):
+        return fake
+
+    monkeypatch.setattr(capture.Band, "connect", connect)
+    pushed = []
+
+    async def go():
+        source = capture.BandSource(BAND)
+        source.push_frame = lambda frame, *a: pushed.append(frame) or asyncio.sleep(0)
+        task = asyncio.create_task(source._run())
+        await asyncio.sleep(0.05)
+        source.set_audio(True)
+        await asyncio.sleep(0.05)
+        source.set_audio(True)  # the next poll: the first switch failed, so try again
+        await asyncio.sleep(0.05)
+        assert fake.calls.count({"audio": True}) == 2
+        fails[0] = False
+        source.set_audio(True)
+        await asyncio.sleep(0.05)
+        source.set_audio(True)  # worked: no more calls
+        await asyncio.sleep(0.05)
+        assert fake.calls.count({"audio": True}) == 3
+        assert not any(isinstance(f, capture.VADUserStoppedSpeakingFrame) for f in pushed)
+        source.set_audio(False)
+        await asyncio.sleep(0.05)
+        assert any(isinstance(f, capture.VADUserStoppedSpeakingFrame) for f in pushed)
+        task.cancel()
+
+    asyncio.run(go())
+
+
+def test_wrong_band_is_a_config_error(monkeypatch):
+    async def connect(number, **options):
+        raise capture.VexoError("wrong-band", "other band")
+
+    monkeypatch.setattr(capture.Band, "connect", connect)
+
+    async def go():
+        source = capture.BandSource(BAND)
+        source.push_frame = lambda *a: asyncio.sleep(0)
+        await source._listen()
+        return source.config_error
+
+    assert asyncio.run(go())
+
+
 # ---- (f) end to end: pretend band -> Deepgram (mock) -> segmenter -> tagger -> sink -> app ----
 
 
@@ -405,9 +463,14 @@ def results(transcript):
     })
 
 
-async def end_to_end(transcript):
-    seen = {"query": None, "audio_bytes": 0}
+async def end_to_end(transcript, refuse=0):
+    seen = {"query": None, "audio_bytes": 0, "refused": 0}
     closed = asyncio.Event()
+
+    async def outage(connection, request):  # the first `refuse` handshakes fail, like a dropped internet link
+        if seen["refused"] < refuse:
+            seen["refused"] += 1
+            return connection.respond(HTTPStatus.SERVICE_UNAVAILABLE, "down\n")
 
     async def mock_deepgram(ws):
         seen["query"] = parse_qs(urlparse(ws.request.path).query)
@@ -422,7 +485,7 @@ async def end_to_end(transcript):
         finally:
             closed.set()
 
-    async with FakeApp([200]) as app, serve(mock_deepgram, "127.0.0.1", 0) as dg:
+    async with FakeApp([200]) as app, serve(mock_deepgram, "127.0.0.1", 0, process_request=outage) as dg:
         cfg = capture.Config(band=BAND, deepgram_key="not-a-real-key", secret=SECRET, app_url=app.url)
         args = capture.parse_args(["--sim", str(FIXTURE), "--gap", "1"])
         code = await capture.run(args, cfg, deepgram_url=f"ws://127.0.0.1:{dg.sockets[0].getsockname()[1]}",
@@ -446,6 +509,13 @@ def test_end_to_end_segment_is_tagged_and_posted(capfd):
     out, err = capfd.readouterr()
     assert capture.DEEPGRAM_NOTICE in out and "topics=['health_fitness', 'food_dining'] -> stored" in out
     assert "really sore" not in out + err  # never print the text
+
+
+def test_deepgram_outage_is_retried_not_fatal(monkeypatch):
+    # pipecat gives up after 3 quick failures in a row; capture raises that to "never" so an outage ends by itself
+    monkeypatch.setattr("pipecat.services.deepgram.stt.exponential_backoff_time", lambda n: 0.05)
+    code, seen, requests = asyncio.run(asyncio.wait_for(end_to_end(SAMPLE, refuse=6), 60))
+    assert seen["refused"] == 6 and code == 0 and len(requests) == 1
 
 
 # ---- delivery accounting and config ----

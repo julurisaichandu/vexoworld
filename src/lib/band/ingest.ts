@@ -18,10 +18,9 @@ export const transcriptBody = z.object({
   topicSource: z.enum(["gemini", "rules"]),
 });
 
-/** The settings row that owns this band number (most recently updated when several do). */
+/** The settings row that owns this band number: the oldest one that claimed it, never the most recently touched. */
 export async function findBandOwner(band: number): Promise<BandSettings | null> {
-  const rows = await store.list("bandSettings", { bandNumber: band });
-  return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+  return (await store.list("bandSettings", { bandNumber: band }, { order: "asc" }))[0] ?? null;
 }
 
 /** Capture heartbeat. Marks the band as seen and tells capture whether audio is wanted. */

@@ -27,6 +27,8 @@ from loguru import logger
 # Before pipecat is imported: its DEBUG logs can carry transcript text, and this program never prints text.
 logger.remove()
 logger.add(sys.stderr, level="WARNING")
+if hasattr(sys.stdout, "reconfigure"):  # a log file or pipe would otherwise hold lines back in an 8 KB buffer
+    sys.stdout.reconfigure(line_buffering=True)
 
 import aiohttp  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
@@ -320,12 +322,15 @@ class BandSource(FrameProcessor):
         self._task: asyncio.Task | None = None
         self._poll_task: asyncio.Task | None = None
         self.error: str | None = None
+        self.config_error = False  # the failure is a wrong setting: run.sh must not restart
+        self._apply_failed = False
 
     def set_audio(self, on: bool):
-        if on == self._wanted:
+        if on == self._wanted and not self._apply_failed:  # a failed switch is tried again at every poll
             return
-        self._wanted = on
-        print("audio on: the band is listening" if on else "audio off: the band's microphone is off")
+        if on != self._wanted:
+            self._wanted = on
+            print("audio on: the band is listening" if on else "audio off: the band's microphone is off")
         if self._queue is not None:
             self._queue.put_nowait(APPLY)
 
@@ -347,12 +352,13 @@ class BandSource(FrameProcessor):
         try:
             await self._run()
         except VexoError as e:
-            await self._fail(e.message + BAND_HINTS.get(e.code, ""))
+            await self._fail(e.message + BAND_HINTS.get(e.code, ""), config=e.code == "wrong-band")
         except Exception as e:  # noqa: BLE001 - end the run instead of leaving a silent pipeline
             await self._fail(f"Band problem: {e!r}")
 
-    async def _fail(self, message: str):
+    async def _fail(self, message: str, config: bool = False):
         self.error = message
+        self.config_error = config
         await self.push_frame(EndWorkerFrame(reason="band"))
 
     async def _apply(self):
@@ -362,8 +368,10 @@ class BandSource(FrameProcessor):
             return
         try:
             await band.configure(audio=self._wanted)
+            self._apply_failed = False
         except VexoError as e:
-            print(f"could not switch the band's audio {'on' if self._wanted else 'off'}: {e.message}")
+            self._apply_failed = True
+            print(f"could not switch the band's audio {'on' if self._wanted else 'off'}: {e.message} (trying again)")
 
     async def _run(self):
         n, name = self._number, band_name(self._number)
@@ -379,7 +387,7 @@ class BandSource(FrameProcessor):
             self._band = None
             await band.disconnect()
             return await self._fail(f"The band that answered is {band.name}, not {name}. Disconnected without "
-                                    "changing anything on it.")
+                                    "changing anything on it.", config=True)
         print(f"connected: {band.name}")
 
         print("loading the sound decoder...")
@@ -408,6 +416,8 @@ class BandSource(FrameProcessor):
                 await self._apply()
                 if item == RECONNECTED:
                     print("the band is back; listening again" if self._wanted else "the band is back")
+                elif not self._wanted:
+                    await self.push_frame(VADUserStoppedSpeakingFrame())  # Deepgram "Finalize": the last words
                 continue
             if item == GAVE_UP:
                 return await self._fail("Lost the band and could not get it back. Double-tap it and run this again.")
@@ -675,6 +685,10 @@ async def run(args: argparse.Namespace, cfg: Config, *, deepgram_url: str = "", 
         )
         processors = [source, stt, Segmenter(args.gap, args.max_seconds), tagger, sink]
 
+    if stt:  # a dropped connection must not end the run: keep retrying (backoff 4-10 s) until the internet is back
+        stt._quick_failure_tracker.max_consecutive_failures = sys.maxsize  # a 4xx (bad key or model) still ends it
+        # ponytail: private pipecat attribute, check it after a pipecat upgrade (test_deepgram_outage_is_retried)
+
     worker = PipelineWorker(
         Pipeline(processors),
         params=PipelineParams(audio_in_sample_rate=SAMPLE_RATE),
@@ -694,7 +708,7 @@ async def run(args: argparse.Namespace, cfg: Config, *, deepgram_url: str = "", 
     print(f"done: {sink.delivered} delivered, {sink.failed} failed")
     if source and source.error:
         print(source.error, file=sys.stderr)
-        return 1
+        return EXIT_CONFIG if source.config_error else 1
     if stt and not stt.is_usable:
         print("Deepgram refused the connection or could not be reached. Check DEEPGRAM_API_KEY and "
               "DEEPGRAM_MODEL in .env.local, and the internet connection.", file=sys.stderr)

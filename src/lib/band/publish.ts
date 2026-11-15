@@ -20,7 +20,7 @@ function blockReason(t: BandTranscript, topics: BandSettings["topics"]): string 
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
-async function run(s: BandSettings): Promise<PublishResult> {
+async function run(s: BandSettings, before: string | undefined): Promise<PublishResult> {
   const finish = async (outcome: PublishResult["outcome"], reason: string, extra: Partial<PublishResult> = {}, patch: Partial<BandSettings> = {}) => {
     await store.update("bandSettings", s.id, { lastOutcome: reason, ...patch });
     return { outcome, reason, ...extra };
@@ -37,8 +37,8 @@ async function run(s: BandSettings): Promise<PublishResult> {
       await store.update("bandTranscripts", t.id, { status: "filtered", reason: why });
     }
   }
-  if (!eligible.length)
-    return finish("nothing", filtered ? `Nothing to publish: ${plural(filtered, "transcript")} mention topics you have not switched on or none was detected.` : "Nothing to publish: no new transcripts.");
+  if (!eligible.length) // the slot was claimed before knowing: give it back so the next eligible transcript posts at once
+    return finish("nothing", filtered ? `Nothing to publish: ${plural(filtered, "transcript")} mention topics you have not switched on or none was detected.` : "Nothing to publish: no new transcripts.", {}, { lastPublishedAt: before });
 
   const agent = (await store.list("agents", { userId: s.userId }))[0];
   if (!agent) return finish("skipped", "Skipped: you have no agent to post for you.");
@@ -77,26 +77,40 @@ async function run(s: BandSettings): Promise<PublishResult> {
   return finish("published", `Published 1 post from ${plural(batch.length, "transcript")}${tail}.`, { postId: post.id }, { lastPublishedAt: at });
 }
 
-/** Publishes now, ignoring the interval. */
+/** Takes the slot (compare-and-set on lastPublishedAt) so two runs never publish the same transcripts, then runs. Null when another run holds it. */
+async function claimAndRun(s: BandSettings, giveBack: (r: PublishResult) => boolean): Promise<PublishResult | null> {
+  const claimed = await store.updateIf("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt }, { lastPublishedAt: new Date().toISOString() });
+  if (!claimed) return null;
+  try {
+    const r = await run(claimed, s.lastPublishedAt);
+    if (giveBack(r)) await store.update("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt });
+    return r;
+  } catch (e) {
+    await store.update("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt, lastOutcome: "Publishing failed; will retry." });
+    throw e;
+  }
+}
+
+/** Publishes now, ignoring the interval. Nothing published (or a failure) leaves the schedule as it was. */
 export async function publishNow(userId: string): Promise<PublishResult> {
-  return run(await getBandSettings(userId));
+  const r = await claimAndRun(await getBandSettings(userId), (r) => r.outcome === "nothing" || r.outcome === "skipped");
+  return r ?? { outcome: "skipped", reason: "Skipped: a publish is already running." };
 }
 
 /** Publishes for every user whose interval has elapsed. Concurrent callers claim the slot, so each slot posts once. */
 export async function publishDue(): Promise<number> {
   let made = 0;
-  for (const s of await store.list("bandSettings")) {
+  const seen = new Set<string>();
+  for (const s of await store.list("bandSettings", {}, { order: "asc" })) {
+    if (seen.has(s.userId)) continue; // one row per user: the oldest, which the page edits
+    seen.add(s.userId);
     if (!s.autoPublish) continue;
     if (Date.now() - Date.parse(s.lastPublishedAt ?? s.createdAt) < INTERVAL_MS[s.publishInterval]) continue;
     // Nothing waiting: leave the slot open so the next transcript posts right away.
     if (!(await store.list("bandTranscripts", { userId: s.userId, status: "pending" }, { limit: 1 })).length) continue;
-    const claimed = await store.updateIf("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt }, { lastPublishedAt: new Date().toISOString() });
-    if (!claimed) continue;
     try {
-      if ((await run(claimed)).outcome === "published") made++;
-    } catch {
-      await store.update("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt, lastOutcome: "Publishing failed; will retry." });
-    }
+      if ((await claimAndRun(s, () => false))?.outcome === "published") made++;
+    } catch {}
   }
   return made;
 }

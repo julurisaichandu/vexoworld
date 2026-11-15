@@ -67,7 +67,9 @@ describe("routes and ingest", () => {
     const body = { band: 47, id: "11111111-1111-4111-8111-111111111111", text: "had a great coffee", startedAt: T0, endedAt: T0, topics: ["food_dining", "bogus"], topicSource: "rules" };
     const call = async () => (await (await transcriptPOST(signed("/api/band/transcripts", body))).json()).status;
     expect(await call()).toBe("unclaimed");
-    await getBandSettings(userId);
+    await getBandSettings(userId); // opening the page claims nothing
+    expect(await call()).toBe("unclaimed");
+    await updateBandSettings(userId, { autoPublish: true }); // saving claims the band
     expect(await call()).toBe("audio_off");
     expect(await store.list("bandTranscripts", { userId })).toHaveLength(0);
     expect(await (await configPOST(signed("/api/band/config", { band: 47 }))).json()).toEqual({ audioEnabled: false, claimed: true });
@@ -148,5 +150,43 @@ describe("publishing", () => {
     expect((await store.list("posts", { userId })).length).toBe(before + 1);
     await add("Second work thing.", ["work"]);
     expect(await publishDue()).toBe(0); // 1m interval not elapsed again
+  });
+});
+
+describe("band ownership and publishing races", () => {
+  const otherUser = async () => (await store.list("agents")).map((a) => a.userId).find((u) => u !== userId)!;
+  it("opening /band claims nothing; the first save wins and others cannot take the band over", async () => {
+    const b = await otherUser();
+    await updateBandSettings(userId, { audioEnabled: true });
+    await getBandSettings(b);
+    for (let i = 0; i < 2; i++) expect(await (await configPOST(signed("/c", { band: 47 }))).json()).toEqual({ audioEnabled: true, claimed: true });
+    await expect(updateBandSettings(b, { audioEnabled: true })).rejects.toThrow(/already linked/);
+    await updateBandSettings(b, { bandNumber: 48 });
+    expect((await getBandSettings(userId)).bandNumber).toBe(47);
+    expect(await ingestTranscript({ band: 47, id: "x", text: "hi", startedAt: T0, endedAt: T0, topics: [], topicSource: "rules" })).toBe("stored");
+    expect(await store.list("bandTranscripts", { userId: b })).toHaveLength(0);
+  });
+  it("two simultaneous first calls create one row", async () => {
+    const b = await otherUser();
+    await Promise.all([getBandSettings(b), getBandSettings(b)]);
+    expect(await store.list("bandSettings", { userId: b })).toHaveLength(1);
+  });
+  it("publishNow and publishDue running together publish once", async () => {
+    const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1m" });
+    await store.update("bandSettings", s.id, { lastPublishedAt: new Date(Date.now() - 120_000).toISOString() });
+    await add("Work thing.", ["work"]);
+    const before = (await store.list("posts", { userId })).length;
+    await Promise.all([publishDue(), publishNow(userId)]);
+    expect((await store.list("posts", { userId })).length).toBe(before + 1);
+  });
+  it("a due slot with only filtered transcripts is not used up", async () => {
+    const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1d" });
+    const old = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    await store.update("bandSettings", s.id, { lastPublishedAt: old });
+    await add("Untagged.", []);
+    expect(await publishDue()).toBe(0);
+    expect((await getBandSettings(userId)).lastPublishedAt).toBe(old);
+    await add("Work thing.", ["work"]);
+    expect(await publishDue()).toBe(1);
   });
 });
