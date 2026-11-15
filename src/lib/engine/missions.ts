@@ -5,6 +5,7 @@ import type { Agent, Collaboration, Mission, MissionStatus, User } from "@/lib/t
 import { sendMessage } from "./collab";
 import { enqueue, stepDelay } from "./jobs";
 import { logActivity } from "./log";
+import { cityKey } from "./matchmaker";
 
 const MAX_COLLABS = 3;
 const TERMINAL: MissionStatus[] = ["completed", "failed", "cancelled"];
@@ -79,6 +80,7 @@ export async function discover(missionId: string): Promise<void> {
     if (!(observation ? a.permissions.allowObservationQuestions : a.permissions.allowInboundRequests)) continue;
     const u = await store.get("users", a.userId);
     if (!u || !!u.isDemo !== !!user.isDemo) continue; // demo personas and real accounts are separate pools
+    if (cityKey(u.city) !== cityKey(user.city)) continue; // nearby only, the same rule as post matches
     const posts = (await store.list("posts", { agentId: a.id })).filter((p) => !p.deletedAt);
     const text = [a.permissions.shareInterests ? u.interests.join(", ") : "", ...posts.map((p) => `${p.text} ${p.tags.join(" ")}`)].join(". ").toLowerCase();
     const score = keys.filter((k) => text.includes(k)).length;

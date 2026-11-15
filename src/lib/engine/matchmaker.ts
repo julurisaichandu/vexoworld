@@ -8,42 +8,65 @@ import { logActivity } from "./log";
 export type PostMatch = { agentId: string; userId: string; label: string; topics: string[]; area?: string; postId?: string; collaborationId: string };
 
 const MAX_PICKS = 3;
-const DEAD = ["declined", "expired", "failed"];
+const HOUR = 3_600_000;
+const OPEN = ["requested", "awaiting_human", "negotiating", "awaiting_intro"];
 const GENERIC = new Set(["place", "update", ...BAND_TOPICS, ...BAND_TOPICS.map((t) => t.replace(/_/g, "-"))]);
 const norm = (s?: string) => (s ?? "").trim().toLowerCase();
 const snippet = (t: string, n = 120) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 const plural = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
+const CITY_ALIASES: Record<string, string> = { sf: "san francisco", "san fran": "san francisco", nyc: "new york", "new york city": "new york", la: "los angeles" };
+/** "SF", "san francisco " and "San Francisco, CA" are one city. */
+export const cityKey = (s?: string) => {
+  const c = norm(s).split(",")[0].trim();
+  return CITY_ALIASES[c] ?? c;
+};
 
 const topicsOf = (text: string, tags: string[]) =>
   [...new Set([...tags.map(norm), ...keywordsIn(text)])].filter((t) => t && !GENERIC.has(t));
 
 type Cand = { agent: Agent; user: User; shared: string[]; best?: Post; score: number };
 
+// ponytail: one queue per process, so the dedup checks below hold; the worker and the Next server can still race (add a per-pair claim in the store if that matters).
+let queue: Promise<unknown> = Promise.resolve();
+
 /** Finds nearby humans who share a topic with a fresh post and asks both sides to approve an intro. */
-export async function matchPost(postId: string): Promise<PostMatch[]> {
+export function matchPost(postId: string): Promise<PostMatch[]> {
+  const run = queue.then(() => matchNow(postId));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function matchNow(postId: string): Promise<PostMatch[]> {
   const post = await store.get("posts", postId);
   if (!post || post.deletedAt) return [];
   const [agent, user] = await Promise.all([store.get("agents", post.agentId), store.get("users", post.userId)]);
   if (!agent || agent.paused || !user) return [];
   const topics = topicsOf(post.text, post.tags);
-  const city = norm(user.city);
+  const city = cityKey(user.city);
   // Nearby matching reveals coarse location, so both sides must share it.
   if (!topics.length || !city || !agent.permissions.shareCoarseLocation) return [];
-  if ((await store.list("messages", { type: "collab_request" })).some((m) => m.payload.postId === postId)) return [];
+  const [users, agents, allPosts, collabs, connections, messages] = await Promise.all([
+    store.list("users"), store.list("agents"), store.list("posts"), store.list("collaborations"), store.list("connections"), store.list("messages"),
+  ]);
+  if (messages.some((m) => m.type === "collab_request" && m.payload.postId === postId)) return [];
+  const since = new Date(Date.now() - HOUR).toISOString();
+  const sent = (agentId: string) => messages.filter((m) => m.fromAgentId === agentId && m.createdAt > since).length;
+  // Each match costs both agents a message now and an intro_accepted later: stay inside the hourly budgets.
+  const room = Math.min(MAX_PICKS, Math.floor((agent.budget.messagesPerHour - sent(agent.id)) / 2));
+  if (room <= 0) return [];
 
-  const collabs = await store.list("collaborations");
-  const connections = await store.list("connections");
+  const userById = new Map(users.map((u) => [u.id, u]));
   const cands: Cand[] = [];
-  for (const a of await store.list("agents")) {
+  for (const a of agents) {
     if (a.userId === user.id || a.paused || !a.permissions.allowInboundRequests || !a.permissions.shareCoarseLocation) continue;
-    const u = await store.get("users", a.userId);
-    if (!u || norm(u.city) !== city) continue;
-    const linked = collabs.some(
-      (c) => !DEAD.includes(c.status) && ((c.initiatorAgentId === agent.id && c.responderAgentId === a.id) || (c.initiatorAgentId === a.id && c.responderAgentId === agent.id)),
-    );
-    const mutual = connections.some((c) => c.status === "mutual" && [c.userAId, c.userBId].includes(user.id) && [c.userAId, c.userBId].includes(u.id));
-    if (linked || mutual) continue;
-    const posts = (await store.list("posts", { agentId: a.id })).filter((p) => !p.deletedAt).sort((x, y) => y.createdAt.localeCompare(x.createdAt));
+    const u = userById.get(a.userId);
+    // Nearby only, and demo personas and real accounts stay separate pools (as in discover).
+    if (!u || cityKey(u.city) !== city || !!u.isDemo !== !!user.isDemo) continue;
+    if (a.budget.messagesPerHour - sent(a.id) < 2) continue;
+    // Skip open talks, existing connections and anyone who already said no.
+    if (collabs.some((c) => OPEN.includes(c.status) && [c.initiatorAgentId, c.responderAgentId].includes(a.id) && [c.initiatorAgentId, c.responderAgentId].includes(agent.id))) continue;
+    if (connections.some((c) => (c.status === "mutual" || c.status === "declined") && [c.userAId, c.userBId].includes(user.id) && [c.userAId, c.userBId].includes(u.id))) continue;
+    const posts = allPosts.filter((p) => p.agentId === a.id && !p.deletedAt).sort((x, y) => y.createdAt.localeCompare(x.createdAt));
     const theirs = new Set([...posts.flatMap((p) => topicsOf(p.text, p.tags)), ...(a.permissions.shareInterests ? u.interests.map(norm) : [])]);
     const shared = topics.filter((t) => theirs.has(t));
     if (!shared.length) continue;
@@ -56,11 +79,11 @@ export async function matchPost(postId: string): Promise<PostMatch[]> {
   const byScore = cands.sort((x, y) => y.score - x.score);
   const picks: Cand[] = [];
   for (const t of topics) {
-    if (picks.length >= MAX_PICKS) break;
+    if (picks.length >= room) break;
     const c = byScore.find((x) => !picks.includes(x) && x.shared.includes(t));
     if (c) picks.push(c);
   }
-  for (const c of byScore) if (picks.length < MAX_PICKS && !picks.includes(c)) picks.push(c);
+  for (const c of byScore) if (picks.length < room && !picks.includes(c)) picks.push(c);
   if (!picks.length) return [];
 
   const label = ownerLabel(user, agent);
@@ -119,7 +142,7 @@ export async function matchPost(postId: string): Promise<PostMatch[]> {
       toAgentId: agent.id,
       type: "intro_request",
       payload: { postId: c.best?.id },
-      summary: `Yes, my human posted: "${snippet(c.best?.text ?? topic, 80)}". Let's ask both humans first.`,
+      summary: c.best ? `Yes, my human posted: "${snippet(c.best.text, 80)}". Let's ask both humans first.` : `Yes, my human is into ${topic} too. Let's ask both humans first.`,
       provenance: "ai_generated",
     });
     const theirArea = c.user.area;
