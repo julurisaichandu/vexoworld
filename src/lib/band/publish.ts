@@ -20,7 +20,7 @@ function blockReason(t: BandTranscript, topics: BandSettings["topics"]): string 
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
-async function run(s: BandSettings, before: string | undefined): Promise<PublishResult> {
+async function run(s: BandSettings, before: string | undefined, auto: boolean): Promise<PublishResult> {
   const finish = async (outcome: PublishResult["outcome"], reason: string, extra: Partial<PublishResult> = {}, patch: Partial<BandSettings> = {}) => {
     await store.update("bandSettings", s.id, { lastOutcome: reason, ...patch });
     return { outcome, reason, ...extra };
@@ -43,6 +43,8 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
   const agent = (await store.list("agents", { userId: s.userId }))[0];
   if (!agent) return finish("skipped", "Skipped: you have no agent to post for you.");
   if (agent.paused) return finish("skipped", "Skipped: your agent is paused.");
+  // "Revoke all sharing" turns auto-publish off; a human pressing Publish now still may.
+  if (auto && !agent.permissions.allowAutoPublish) return finish("skipped", "Skipped: auto-publish is off in Settings.");
 
   const batch = eligible.slice(0, BATCH);
   const allowed = BAND_TOPICS.filter((t) => s.topics[t]) as BandTopic[];
@@ -109,11 +111,11 @@ async function run(s: BandSettings, before: string | undefined): Promise<Publish
 }
 
 /** Takes the slot (compare-and-set on lastPublishedAt) so two runs never publish the same transcripts, then runs. Null when another run holds it. */
-async function claimAndRun(s: BandSettings, giveBack: (r: PublishResult) => boolean): Promise<PublishResult | null> {
+async function claimAndRun(s: BandSettings, giveBack: (r: PublishResult) => boolean, auto = false): Promise<PublishResult | null> {
   const claimed = await store.updateIf("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt }, { lastPublishedAt: new Date().toISOString() });
   if (!claimed) return null;
   try {
-    const r = await run(claimed, s.lastPublishedAt);
+    const r = await run(claimed, s.lastPublishedAt, auto);
     if (giveBack(r)) await store.update("bandSettings", s.id, { lastPublishedAt: s.lastPublishedAt });
     return r;
   } catch (e) {
@@ -140,7 +142,8 @@ export async function publishDue(): Promise<number> {
     // Nothing waiting: leave the slot open so the next transcript posts right away.
     if (!(await store.list("bandTranscripts", { userId: s.userId, status: "pending" }, { limit: 1 })).length) continue;
     try {
-      if ((await claimAndRun(s, () => false))?.outcome === "published") made++;
+      // A round that posts nothing has filtered its whole batch, so giving the slot back cannot loop.
+      if ((await claimAndRun(s, (r) => r.outcome === "nothing", true))?.outcome === "published") made++;
     } catch {}
   }
   return made;

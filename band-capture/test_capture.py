@@ -152,6 +152,11 @@ def test_rules_tag_each_topic(slug, text):
     assert slug in capture.rule_topics(text)
 
 
+def test_rules_money_stems_do_not_catch_taxi_or_europe():
+    assert "financial" not in capture.rule_topics("I took a taxi to the airport for my trip to Europe.")
+    assert "financial" in capture.rule_topics("I paid my taxes in euros.")
+
+
 def test_rules_return_no_topic_for_small_talk_and_keep_order():
     assert capture.rule_topics("Hmm, okay, yes, right then.") == []
     got = capture.rule_topics("My mom lent me money for lunch.")

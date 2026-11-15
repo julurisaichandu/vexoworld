@@ -106,8 +106,8 @@ TOPICS: list[tuple[str, str, str]] = [
      r"mom\b|mum\b|dad\b|mother|father|wife|husband|girlfriend|boyfriend|partner|sister|brother|son\b|"
      r"daughter|kids?\b|parents|family|friend|grandma|grandpa|aunt|uncle|cousin|dating|my ex\b"),
     ("financial", "Money & finances",
-     r"money|dollar|rupee|euro|budget|salary|rent\b|mortgage|loan|debt|credit|debit|bank\b|invest|stock|"
-     r"tax|bills?\b|payment|paid\b|price|cost\b|expens|savings|account number|crypto|\bpin\b|password"),
+     r"money|dollar|rupee|euros?\b|budget|salary|rent\b|mortgage|loan|debt|credit|debit|bank\b|invest|stock|"
+     r"tax(?:es|ed)?\b|bills?\b|payment|paid\b|price|cost\b|expens|savings|account number|crypto|\bpin\b|password"),
 ]
 TOPIC_SLUGS = [t[0] for t in TOPICS]
 TOPIC_LABELS = {slug: label for slug, label, _ in TOPICS}

@@ -45,7 +45,7 @@ const stat = async () => (await store.list("bandTranscripts", { userId })).map((
 beforeEach(async () => {
   gemini.mockReset().mockResolvedValue(null);
   await store.reset();
-  userId = (await store.list("agents"))[0].userId;
+  userId = "usr_sarah";
   await store.update("agents", (await store.list("agents", { userId }))[0].id, { paused: false });
 });
 
@@ -285,6 +285,26 @@ describe("band ownership and publishing races", () => {
     const before = (await store.list("posts", { userId })).length;
     await Promise.all([publishDue(), publishNow(userId)]);
     expect((await store.list("posts", { userId })).length).toBe(before + 1);
+  });
+  it("auto-publish follows the agent's auto-publish permission; Publish now still posts", async () => {
+    const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1m" });
+    await store.update("bandSettings", s.id, { lastPublishedAt: new Date(Date.now() - 120_000).toISOString() });
+    const agent = (await store.list("agents", { userId }))[0];
+    await store.update("agents", agent.id, { permissions: { ...agent.permissions, allowAutoPublish: false } });
+    await add("Work thing.", ["work"]);
+    expect(await publishDue()).toBe(0);
+    expect((await getBandSettings(userId)).lastOutcome).toBe("Skipped: auto-publish is off in Settings.");
+    expect((await publishNow(userId)).outcome).toBe("published");
+  });
+  it("a due round that writes nothing gives the slot back", async () => {
+    const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1d" });
+    const old = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    await store.update("bandSettings", s.id, { lastPublishedAt: old });
+    gemini.mockResolvedValue({ text: "", tags: [] } as never);
+    await add("Work thing.", ["work"]);
+    expect(await publishDue()).toBe(0);
+    expect(await stat()).toEqual(["filtered"]);
+    expect((await getBandSettings(userId)).lastPublishedAt).toBe(old);
   });
   it("a due slot with only filtered transcripts is not used up", async () => {
     const s = await updateBandSettings(userId, { topics: { work: true }, publishInterval: "1d" });
