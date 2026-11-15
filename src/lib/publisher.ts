@@ -37,7 +37,7 @@ export async function considerPost(userId: string, candidate: string, origin: "c
     candidate,
     personality: agent.personality,
     permissions,
-    frequency: auto ? agent.publishFrequency : "auto",
+    frequency: auto && agent.publishFrequency !== "manual" ? agent.publishFrequency : "auto", // manual is handled below: ask, not skip
     recentPosts: mine.filter((p) => !p.deletedAt).map((p) => p.text),
     lastPublishedAt: agent.lastPublishedAt,
   });

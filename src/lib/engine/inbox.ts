@@ -1,4 +1,5 @@
 import * as ai from "@/lib/ai";
+import { redact } from "@/lib/privacy";
 import { publishApproved } from "@/lib/publisher";
 import { store } from "@/lib/store";
 import type { HumanRequest } from "@/lib/types";
@@ -56,11 +57,23 @@ export async function decideRequest(
   const req = await owned(userId, requestId);
   const approve = decision === "approve";
   const needsReview = req.kind === "question" || req.kind === "observation";
-  if (needsReview ? req.status !== "review" : req.status !== "pending") throw new Error(needsReview ? "answer the request first" : "request already resolved");
+  // A question or observation can be declined before it is answered; approving needs an answer to review.
+  if (needsReview ? (approve ? req.status !== "review" : req.status !== "pending" && req.status !== "review") : req.status !== "pending")
+    throw new Error(needsReview ? "answer the request first" : "request already resolved");
   if (approve && req.sensitive && opts.confirmed !== true) throw new Error("confirmation required");
 
   const patch: Partial<HumanRequest> = { status: approve ? "approved" : "rejected", resolvedAt: new Date().toISOString() };
-  if (approve && opts.editedSummary && req.answerStructured) patch.answerStructured = { ...req.answerStructured, summary: opts.editedSummary };
+  if (approve && opts.editedSummary && req.answerStructured) {
+    // The edit is the whole answer: free-text fields are dropped and times are re-derived from the edited text.
+    const summary = redact(opts.editedSummary).slice(0, 300);
+    const fields: Record<string, string> = {};
+    if (req.answerStructured.fields.crowd) fields.crowd = req.answerStructured.fields.crowd;
+    if (req.kind === "question") {
+      const slots = extractSlots(summary, dayOf(req.answerStructured.fields.availability) ?? "today");
+      if (slots.length) fields.availability = slots.join(", ");
+    }
+    patch.answerStructured = { summary, fields };
+  }
   const next = await store.updateIf("humanRequests", requestId, { status: req.status }, patch);
   if (!next) throw new Error("request changed, try again");
 

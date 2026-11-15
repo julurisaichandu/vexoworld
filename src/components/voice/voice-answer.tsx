@@ -28,6 +28,7 @@ export function VoiceAnswer({ onTranscript, disabled }: { onTranscript: (text: s
   const chunks = useRef<Blob[]>([]);
   const recognition = useRef<Recognition | null>(null);
   const heard = useRef("");
+  const browserNext = useRef(false); // set after Deepgram fails: the next click uses browser speech
 
   useEffect(() => {
     if (phase !== "recording") return;
@@ -80,6 +81,11 @@ export function VoiceAnswer({ onTranscript, disabled }: { onTranscript: (text: s
     setError(null);
     setLabel(null);
     setSeconds(0);
+    if (browserNext.current) {
+      browserNext.current = false;
+      if (!startBrowser()) setPhase("typed");
+      return;
+    }
     try {
       const media = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.current = media;
@@ -97,8 +103,10 @@ export function VoiceAnswer({ onTranscript, disabled }: { onTranscript: (text: s
           setError("Please sign in again.");
           return setPhase("idle");
         }
-        setError("Deepgram is unavailable. Say it again for browser speech, or type it below.");
-        if (!startBrowser()) setPhase("typed");
+        // The mic only starts from a click: ask again instead of reopening it from this callback.
+        setError("Deepgram is unavailable. Press the mic again for browser speech, or type it below.");
+        browserNext.current = true;
+        setPhase("idle");
       };
       recorder.current = rec;
       rec.start();

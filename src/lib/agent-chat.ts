@@ -8,6 +8,9 @@ import type { HumanRequest, Source } from "./types";
 
 type ChatResult = { reply: string; actions: { label: string; href?: string }[]; aiSource: Source; confirm?: { requestId: string; prompt: string } };
 
+// ponytail: in-memory, per server instance; move to the chat table if confirmations must survive restarts.
+const confirming = new Map<string, { requestId: string; until: number }>();
+
 const isOpen = (r: HumanRequest) => r.status === "review" || (r.status === "pending" && r.kind.startsWith("approval_"));
 
 async function sharesWith(req: HumanRequest) {
@@ -24,8 +27,9 @@ export async function chatWithAgent(userId: string, text: string, inputSource: "
   await store.insert("chat", { userId, agentId: agent.id, role: "user", text, inputSource, aiSource: "simulated" });
   await addToCorpus(userId, text, inputSource === "voice" ? "voice" : "chat");
 
-  const open = (await store.list("humanRequests", { userId })).filter(isOpen);
-  const cmd = await ai.parseCommand(text, { agentName: agent.name, pending: open.length });
+  const all = (await store.list("humanRequests", { userId })).filter((r) => r.status === "pending" || r.status === "review");
+  const open = all.filter(isOpen); // what approve/reject can act on
+  const cmd = await ai.parseCommand(text, { agentName: agent.name, pending: all.length });
   let res: ChatResult = { reply: cmd.reply, actions: [], aiSource: cmd.aiSource };
 
   switch (cmd.intent) {
@@ -51,19 +55,24 @@ export async function chatWithAgent(userId: string, text: string, inputSource: "
       break;
     }
     case "list_pending": {
-      res.reply = open.length ? `You have ${open.length} waiting: ${open.map((r) => r.prompt).join(" | ")}` : "Nothing is waiting for you right now.";
+      res.reply = all.length ? `You have ${all.length} waiting: ${all.map((r) => r.prompt).join(" | ")}` : "Nothing is waiting for you right now.";
       res.actions = [{ label: "Open inbox", href: "/inbox" }];
       break;
     }
     case "approve":
     case "reject": {
-      const req = open.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      // A sensitive approval applies only to the request the agent read back, never to whatever is newest.
+      const asked = confirming.get(userId);
+      const readBack = asked && asked.until > Date.now() ? open.find((r) => r.id === asked.requestId) : undefined;
+      const req = readBack ?? open.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
       if (!req) {
         res.reply = "Nothing is waiting for your decision.";
-      } else if (cmd.intent === "approve" && req.sensitive && !/\bconfirm/i.test(text)) {
+      } else if (cmd.intent === "approve" && req.sensitive && !(readBack && /\bconfirm/i.test(text))) {
         const prompt = `This shares your contact details with ${await sharesWith(req)}. Say or type 'confirm' to approve.`;
+        confirming.set(userId, { requestId: req.id, until: Date.now() + 120_000 });
         res = { ...res, reply: prompt, confirm: { requestId: req.id, prompt } };
       } else {
+        confirming.delete(userId);
         try {
           await engine.decideRequest(userId, req.id, cmd.intent, { confirmed: true });
           res.reply = cmd.intent === "approve" ? "Done, approved." : "Okay, declined.";

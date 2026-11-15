@@ -47,10 +47,10 @@ export async function requireUserId(): Promise<string> {
   return id;
 }
 
-/** For route handlers: cookie session, or `Authorization: Bearer <token>` with scope "voice" (Pipecat bot). */
-export async function userIdFromRequest(req: Request): Promise<string | null> {
+/** For route handlers: cookie session. A `Bearer` voice token (Pipecat bot) counts only where the route opts in with `allowVoice`. */
+export async function userIdFromRequest(req: Request, opts: { allowVoice?: boolean } = {}): Promise<string | null> {
   const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) {
+  if (opts.allowVoice && auth?.startsWith("Bearer ")) {
     const t = verifyToken<{ uid: string; scope?: string }>(auth.slice(7));
     return t?.scope === "voice" ? t.uid : null;
   }

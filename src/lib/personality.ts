@@ -23,7 +23,7 @@ export async function addToCorpus(userId: string, text: string, source: CorpusEn
   const { tokens } = await corpusStats(userId);
   const min = Number(process.env.PERSONALITY_MIN_TOKENS ?? TARGET);
   if (tokens >= min && (!agent.personality || tokens - agent.personality.tokensAnalyzed >= REFRESH_TOKENS))
-    void inferPersonality(userId).catch(() => {});
+    void inferPersonality(userId, { force: true }).catch(() => {});
 }
 
 /** Analyzes the newest <= 300k tokens in one call. A personality the human wrote always wins. */

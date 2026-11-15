@@ -70,7 +70,6 @@ export async function signOut(): Promise<void> {
 export async function createAgent(formData: FormData): Promise<{ error?: string }> {
   const userId = await requireUserId();
   if ((await store.list("agents", { userId }))[0]) return { error: "You already have an agent." };
-  const user = (await store.get("users", userId))!;
   const agentName = str(formData, "agentName");
   if (!agentName) return { error: "Give your agent a name." };
   const freq = str(formData, "publishFrequency") as PublishFrequency;
@@ -99,7 +98,7 @@ export async function createAgent(formData: FormData): Promise<{ error?: string 
     : null;
   await store.insert("agents", {
     userId,
-    name: `${user.name}'s agent: ${agentName}`,
+    name: agentName.slice(0, 60), // never the owner's full name: agent names are public whatever the permissions say
     avatarSeed: agentName,
     color: ["#FBCFE8", "#BAE6FD", "#BBF7D0", "#FDE68A", "#DDD6FE", "#FED7AA"][(await store.list("agents")).length % 6],
     persona: str(formData, "persona") || "Helpful and concise.",
@@ -188,20 +187,35 @@ export async function commentAction(postId: string, text: string, parentId?: str
   done();
 }
 
+const PERMISSION_KEYS: (keyof Permissions)[] = [
+  "shareFirstName", "shareInterests", "shareGoals", "shareCoarseLocation", "shareAvailability",
+  "allowAutoPublish", "requirePostApproval", "allowInboundRequests", "allowObservationQuestions",
+];
+const FREQUENCIES = ["auto", "hourly", "daily", "weekly", "manual"];
+
+// Client JSON is not type-checked at runtime: every action below copies known keys only.
 export async function updatePermissionsAction(patch: Partial<Permissions>): Promise<void> {
   const agent = await agentOf(await requireUserId());
-  await store.update("agents", agent.id, { permissions: { ...agent.permissions, ...patch } });
+  const clean = Object.fromEntries(PERMISSION_KEYS.filter((k) => typeof patch?.[k] === "boolean").map((k) => [k, patch[k]]));
+  await store.update("agents", agent.id, { permissions: { ...agent.permissions, ...clean } });
   done();
 }
 
 export async function updateAgentAction(patch: { name?: string; persona?: string; publishFrequency?: PublishFrequency; paused?: boolean }): Promise<void> {
   const userId = await requireUserId();
-  const { paused, ...rest } = patch;
   const agent = await agentOf(userId);
-  await store.update("agents", agent.id, rest);
-  if (paused !== undefined) await setPaused(userId, paused);
+  const clean: Partial<Agent> = {};
+  if (typeof patch?.name === "string" && patch.name.trim()) clean.name = patch.name.trim().slice(0, 60);
+  if (typeof patch?.persona === "string") clean.persona = patch.persona.slice(0, 500);
+  if (typeof patch?.publishFrequency === "string" && FREQUENCIES.includes(patch.publishFrequency)) clean.publishFrequency = patch.publishFrequency;
+  if (clean.name && (await store.list("agents")).some((a) => a.id !== agent.id && a.name.toLowerCase() === clean.name!.toLowerCase())) throw new Error("That agent name is taken.");
+  await store.update("agents", agent.id, clean);
+  if (typeof patch?.paused === "boolean") await setPaused(userId, patch.paused);
   done();
 }
+
+const TEXT_KEYS = ["summary", "tone", "postingStyle", "sampleVoice"] as const;
+const LIST_KEYS = ["traits", "interests", "values"] as const;
 
 export async function updatePersonalityAction(patch: Partial<Personality>): Promise<void> {
   const agent = await agentOf(await requireUserId());
@@ -209,7 +223,11 @@ export async function updatePersonalityAction(patch: Partial<Personality>): Prom
     summary: "", tone: "", traits: [], interests: [], values: [], postingStyle: "", emojiUse: "light", sampleVoice: "",
     source: "user", tokensAnalyzed: 0, updatedAt: "", aiSource: "simulated",
   };
-  await store.update("agents", agent.id, { personality: { ...base, ...patch, source: "user", updatedAt: new Date().toISOString() } });
+  const clean: Partial<Personality> = {};
+  for (const k of TEXT_KEYS) if (typeof patch?.[k] === "string") clean[k] = patch[k]!.slice(0, 2000);
+  for (const k of LIST_KEYS) if (Array.isArray(patch?.[k])) clean[k] = patch[k]!.filter((v) => typeof v === "string").slice(0, 20).map((v) => v.slice(0, 80));
+  if (patch?.emojiUse && ["none", "light", "heavy"].includes(patch.emojiUse)) clean.emojiUse = patch.emojiUse;
+  await store.update("agents", agent.id, { personality: { ...base, ...clean, source: "user", updatedAt: new Date().toISOString() } });
   done();
 }
 
@@ -247,7 +265,9 @@ export async function markNotificationsReadAction(): Promise<void> {
 }
 
 export async function resetDemoAction(): Promise<void> {
-  await requireUserId();
+  const user = await store.get("users", await requireUserId());
+  // Wipes every account: only a demo session, and only where the operator opted in (VEXOWORLD_ALLOW_RESET=1).
+  if (!user?.isDemo || process.env.VEXOWORLD_ALLOW_RESET !== "1") throw new Error("Reset is disabled.");
   await store.reset();
   revalidatePath("/", "layout");
 }

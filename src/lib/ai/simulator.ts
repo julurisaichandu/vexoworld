@@ -83,7 +83,7 @@ export function reviewInbound(input: {
     const place = String(r.place ?? r.topic ?? "that place");
     return { wants: true, missing: ["current crowd level"], questionForHuman: `Hey! Someone wants to know if ${place} is crowded right now. Would you like to answer?` };
   }
-  const wanted = Array.isArray(r.interests) ? (r.interests as string[]) : [];
+  const wanted = Array.isArray(r.interests) ? (r.interests as string[]) : typeof r.interest === "string" && r.interest ? [r.interest] : [];
   const wants = !wanted.length || wanted.some((i) => input.known.interests.map((k) => k.toLowerCase()).includes(i.toLowerCase()));
   if (!wants) return { wants: false, missing: [] as string[] };
   const when = typeof r.when === "string" && r.when ? r.when : undefined;

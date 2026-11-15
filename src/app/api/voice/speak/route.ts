@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { userIdFromRequest } from "@/lib/session";
+import { readJson } from "@/lib/utils";
 
 export async function POST(req: Request) {
   if (!(await userIdFromRequest(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const key = process.env.DEEPGRAM_API_KEY;
   if (!key) return NextResponse.json({ simulated: true }, { status: 503 });
-  const body = (await req.json().catch(() => null)) as { text?: unknown } | null;
+  const body = (await readJson(req).catch(() => null)) as { text?: unknown } | null;
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!text || text.length > 1000) return NextResponse.json({ error: "text must be 1-1000 chars" }, { status: 400 });
   try {

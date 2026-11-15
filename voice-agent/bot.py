@@ -1,5 +1,11 @@
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import os
 import sys
+import time
 from pathlib import Path
 
 # Before any pipecat import: LLM services otherwise log the whole conversation at DEBUG.
@@ -36,6 +42,22 @@ from pipecat.transports.base_transport import TransportParams
 from pipecat.workers.runner import WorkerRunner
 
 APP_URL = os.getenv("VEXOWORLD_URL", "http://localhost:3000").rstrip("/")
+
+
+def token_is_valid(token: object) -> bool:
+    """Same check as the app's verifyToken: HMAC with SESSION_SECRET, not expired, scope "voice"."""
+    if not isinstance(token, str) or token.count(".") != 1:
+        return False
+    body, sig = token.split(".")
+    secret = os.getenv("SESSION_SECRET") or "dev-only-vexoworld-secret"
+    expected = base64.urlsafe_b64encode(hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()).rstrip(b"=").decode()
+    if not hmac.compare_digest(sig, expected):
+        return False
+    try:
+        data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    except (ValueError, binascii.Error):
+        return False
+    return isinstance(data, dict) and data.get("scope") == "voice" and isinstance(data.get("exp"), (int, float)) and data["exp"] > time.time()
 
 SYSTEM_PROMPT = (
     "You are the user's personal AI agent on VexoWorld. Speak in one or two short sentences; "
@@ -101,8 +123,8 @@ async def bot(runner_args: RunnerArguments):
     body = runner_args.body if isinstance(runner_args.body, dict) else {}
     token = body.get("token")
     missing = [k for k in ("DEEPGRAM_API_KEY", "GEMINI_API_KEY") if not os.getenv(k)]
-    if not isinstance(token, str) or not token or missing:
-        logger.error(f"Voice session not started: {'no token' if missing == [] else missing[0] + ' is not set'}")
+    if not token_is_valid(token) or missing:
+        logger.error(f"Voice session not started: {'invalid or missing token' if missing == [] else missing[0] + ' is not set'}")
         conn = getattr(runner_args, "webrtc_connection", None)
         if conn:
             await conn.disconnect()

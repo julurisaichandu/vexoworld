@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { signToken, userIdFromRequest } from "@/lib/session";
+import { currentUserId, signToken } from "@/lib/session";
 
-export async function POST(req: Request) {
-  const uid = await userIdFromRequest(req);
+export async function POST() {
+  const uid = await currentUserId(); // cookie only: a voice token must not mint more voice tokens
   if (!uid) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   return NextResponse.json({
     token: signToken({ uid, scope: "voice" }, 600),

@@ -1,5 +1,6 @@
 import * as ai from "@/lib/ai";
 import { askNetwork, createMission, decideRequest, kickJobs } from "@/lib/engine";
+import { readJson } from "@/lib/utils";
 import { userIdFromRequest } from "@/lib/session";
 import { store } from "@/lib/store";
 
@@ -46,9 +47,9 @@ const tools: Record<string, (userId: string, args: Args) => Promise<Out>> = {
 };
 
 export async function POST(req: Request) {
-  const userId = await userIdFromRequest(req);
+  const userId = await userIdFromRequest(req, { allowVoice: true });
   if (!userId) return Response.json({ ok: false, say: "Please sign in." }, { status: 401 });
-  const body = (await req.json().catch(() => null)) as { tool?: string; args?: Args } | null;
+  const body = (await readJson(req).catch(() => null)) as { tool?: string; args?: Args } | null;
   const run = body?.tool && Object.hasOwn(tools, body.tool) ? tools[body.tool] : null;
   if (!run) return Response.json({ ok: false, say: "I don't know that tool." }, { status: 400 });
   try {

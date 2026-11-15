@@ -1,7 +1,7 @@
 import * as ai from "@/lib/ai";
-import { ownerLabel } from "@/lib/privacy";
+import { ownerLabel, redact } from "@/lib/privacy";
 import { store } from "@/lib/store";
-import type { Agent, Mission, MissionStatus, User } from "@/lib/types";
+import type { Agent, Collaboration, Mission, MissionStatus, User } from "@/lib/types";
 import { sendMessage } from "./collab";
 import { enqueue, stepDelay } from "./jobs";
 import { logActivity } from "./log";
@@ -78,7 +78,7 @@ export async function discover(missionId: string): Promise<void> {
     if (a.userId === m.userId || a.paused || existing.some((c) => c.responderAgentId === a.id)) continue;
     if (!(observation ? a.permissions.allowObservationQuestions : a.permissions.allowInboundRequests)) continue;
     const u = await store.get("users", a.userId);
-    if (!u) continue;
+    if (!u || !!u.isDemo !== !!user.isDemo) continue; // demo personas and real accounts are separate pools
     const posts = (await store.list("posts", { agentId: a.id })).filter((p) => !p.deletedAt);
     const text = [a.permissions.shareInterests ? u.interests.join(", ") : "", ...posts.map((p) => `${p.text} ${p.tags.join(" ")}`)].join(". ").toLowerCase();
     const score = keys.filter((k) => text.includes(k)).length;
@@ -96,6 +96,7 @@ export async function discover(missionId: string): Promise<void> {
   const topic = observation ? (m.place ?? m.goal) : [m.interests[0] ?? m.title, m.when].filter(Boolean).join(" ");
   const label = ownerLabel(user, agent);
   for (const c of chosen) {
+    if (TERMINAL.includes((await store.get("missions", missionId))!.status)) break; // cancelled while ranking
     const collab = await store.insert("collaborations", {
       missionId,
       kind: observation ? "observation" : "match",
@@ -118,14 +119,15 @@ export async function discover(missionId: string): Promise<void> {
     });
     const base = { ownerLabel: label, agentName: agent.name };
     if (observation) {
-      await sendMessage(collab, agent.id, c.agent.id, "observation_request", { ...base, place: m.place ?? m.goal, question: m.goal }, `Asking ${c.agent.name}'s human: ${m.goal}`, "ai_generated");
+      const question = redact(m.goal).slice(0, 200); // typed words reach another human: redacted and capped
+      await sendMessage(collab, agent.id, c.agent.id, "observation_request", { ...base, place: m.place ?? question, question }, `Asking ${c.agent.name}'s human: ${question}`, "ai_generated");
     } else {
       await sendMessage(
         collab,
         agent.id,
         c.agent.id,
         "collab_request",
-        { ...base, interest: m.interests[0] ?? m.title, when: m.when ?? "", area: agent.permissions.shareCoarseLocation ? user.area : "" },
+        { ...base, interest: m.interests[0] ?? "meet up", when: m.when ?? "", area: agent.permissions.shareCoarseLocation ? user.area : "" },
         `My human wants to ${m.interests[0] ?? "meet up"}${m.when ? ` ${m.when}` : ""}. Is yours interested?`,
         "ai_generated",
       );
@@ -158,11 +160,30 @@ export async function refreshMission(missionId: string): Promise<void> {
   if (m.status !== status) await setMission(m, status);
 }
 
+/** Stops a collaboration that is still open: expires it and its pending requests. No-op when it already ended. */
+export async function expireCollab(c: Collaboration): Promise<boolean> {
+  if (DEAD.includes(c.status) || c.status === "introduced" || c.status === "answered") return false;
+  if (!(await store.updateIf("collaborations", c.id, { status: c.status }, { status: "expired" }))) return false;
+  for (const r of await store.list("humanRequests", { collaborationId: c.id })) {
+    if (r.status === "pending" || r.status === "review") await store.update("humanRequests", r.id, { status: "expired", resolvedAt: new Date().toISOString() });
+  }
+  await refreshMission(c.missionId);
+  return true;
+}
+
+export async function failMission(missionId: string): Promise<void> {
+  const m = await store.get("missions", missionId);
+  if (!m || TERMINAL.includes(m.status)) return;
+  await setMission(m, "failed", { outcome: "Something went wrong while working on this." });
+  await logActivity({ userId: m.userId, agentId: m.agentId, type: "mission.failed", text: `${m.title} could not be completed`, refType: "mission", refId: m.id, notify: true });
+}
+
 export async function completeMission(missionId: string, outcome: string, text: string): Promise<void> {
   const m = await store.get("missions", missionId);
   if (!m || TERMINAL.includes(m.status)) return;
   await setMission(m, "completed", { outcome });
   await logActivity({ userId: m.userId, agentId: m.agentId, type: "mission.completed", text, refType: "mission", refId: m.id, notify: true });
+  for (const c of await store.list("collaborations", { missionId })) await expireCollab(c);
 }
 
 export async function cancelMission(userId: string, missionId: string): Promise<void> {
@@ -170,13 +191,7 @@ export async function cancelMission(userId: string, missionId: string): Promise<
   if (!m || m.userId !== userId) throw new Error("forbidden");
   if (TERMINAL.includes(m.status)) return;
   await setMission(m, "cancelled");
-  for (const c of await store.list("collaborations", { missionId })) {
-    if (DEAD.includes(c.status) || c.status === "introduced" || c.status === "answered") continue;
-    await store.update("collaborations", c.id, { status: "expired" });
-    for (const r of await store.list("humanRequests", { collaborationId: c.id })) {
-      if (r.status === "pending" || r.status === "review") await store.update("humanRequests", r.id, { status: "expired", resolvedAt: new Date().toISOString() });
-    }
-  }
+  for (const c of await store.list("collaborations", { missionId })) await expireCollab(c);
   await logActivity({ userId, agentId: m.agentId, type: "mission.cancelled", text: `You cancelled: ${m.title}`, refType: "mission", refId: m.id });
 }
 

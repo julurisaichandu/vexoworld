@@ -2,7 +2,10 @@ import type { Agent, Permissions, User } from "./types";
 
 const PATTERNS = [
   /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
-  /https?:\/\/\S+\?\S*/g,
+  /https?:\/\/\S+/g,
+  /(?<![\w.])@\w{2,}/g,
+  /[\w.+-]+\s+at\s+[\w-]+\s+dot\s+\w+/gi,
+  /\+\d{1,3}[\s.-]?\d{1,4}(?:[\s.-]?\d{2,4}){2,4}\b/g,
   /\b\d{1,5}\s+(?:[A-Za-z][\w.]*\s+){1,3}(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Dr|Drive|Ln|Lane|Way|Ct|Court)\b\.?/gi,
   /(?:\+?\d{1,2}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b/g,
 ];
